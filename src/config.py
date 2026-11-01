@@ -46,12 +46,19 @@ class VideoConfig:
 @dataclass
 class VoiceConfig:
     # Kokoro voice IDs:
-    # 5: am_adam (American Male)
-    # 6: am_michael (Deep Realistic American Male Narrator - Default)
-    # 9: bm_george (Deep Resonant British Male Narrator)
-    # 10: bm_lewis (British Male)
-    speaker_id: int = 6
-    speaker_name: str = "am_michael"
+    # 0: af_alloy (American Female)
+    # 1: af_bella (American Female - Warm & Expressive)
+    # 2: af_heart (American Female - Soft & Calm)
+    # 3: af_nicole (American Female - Gentle)
+    # 4: af_sarah (American Female - Confident)
+    # 5: am_adam (American Male - Crisp & Conversational, Repository Default)
+    # 6: am_michael (American Male - Deep Documentary Narrator, Local Default)
+    # 7: bf_emma (British Female - Articulate)
+    # 8: bf_isabella (British Female - Melodic)
+    # 9: bm_george (British Male - Deep & Resonant Historical)
+    # 10: bm_lewis (British Male - Smooth & Composed)
+    speaker_id: int = 5
+    speaker_name: str = "am_adam"
     speed: float = 1.02
     model_dir: Path = field(default_factory=find_kokoro_model_dir)
 

@@ -7,7 +7,10 @@ This file serves as the definitive reference for autonomous coding and operation
 ## 1. Project Mission & Overview
 
 **Photo Story Narrator** is an automated 2K video production pipeline that converts static story illustrations (from 10 up to 1,000+ frames) and an audio script into a cinematic, fully voiced video:
-- **TTS Engine**: Kokoro TTS via `sherpa-onnx` (deep realistic male voices: `am_michael`, `bm_george`).
+- **TTS Engine**: Kokoro TTS via `sherpa-onnx` supporting 11 voices (0 to 10).
+  - **Repository Default**: `am_adam` (ID: 5) for clean, crisp, conversational narration.
+  - **Local Default (carlotata)**: `am_michael` (ID: 6) for deep, realistic cinematic documentary narration.
+  - **Anishorts Default**: `am_adam` (ID: 5) for engaging social short narration.
 - **Acoustic Forced Alignment**: `faster-whisper` (`tiny.en`) detects physical speech boundaries and places cuts strictly in natural acoustic silences between sentences: $\text{cut}_i = \frac{\text{speech\_end}_i + \text{speech\_start}_{i+1}}{2}$.
 - **3 Clean Ken Burns Motions**:
   1. `zoom_in`: Centered slow push-in focusing attention on subjects.

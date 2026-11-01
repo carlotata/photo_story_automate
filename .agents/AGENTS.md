@@ -1,2 +1,5 @@
 # Refer to AGENTS.md in root for the complete agent operational specification.
-# The root AGENTS.md defines strict rules for script parsing, camera motion, and acoustic alignment.
+# Key Voice Rules:
+# - Repository Default: am_adam (ID: 5)
+# - Anishorts Default: am_adam (ID: 5)
+# - User Local Default (carlotata): am_michael (ID: 6)

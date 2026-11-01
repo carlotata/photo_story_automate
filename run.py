@@ -40,8 +40,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Render photo slideshow with deep male Kokoro narration and synced subtitles.")
     parser.add_argument("story", nargs="?", default=None, help="Name of the story folder inside input/ (e.g. 'The Ancient Temple').")
     parser.add_argument("--script", "-s", type=str, default=None, help="Optional script override text or path to script file.")
-    parser.add_argument("--voice", "-v", type=int, default=6, choices=[5, 6, 9, 10],
-                        help="Kokoro male voice: 6 (am_michael - Deep American Narrator, Default), 9 (bm_george - Deep British), 5 (am_adam).")
+    parser.add_argument("--voice", "-v", type=int, default=5, choices=list(range(11)),
+                        help="Kokoro voice ID: 5 (am_adam - Conversational Male, Default), 6 (am_michael - Deep Documentary), 9 (bm_george - Deep British), 1 (af_bella - Expressive Female), 0-10 available.")
     parser.add_argument("--aspect", "-a", type=str, default="auto", choices=["auto", "9:16", "16:9", "1:1"],
                         help="Aspect ratio: auto (detects from images), 9:16 (Shorts/Reels), 16:9 (Widescreen), 1:1 (Square).")
     parser.add_argument("--transition", "-t", type=str, default="random_cinematic",
@@ -88,8 +88,20 @@ def main():
 
     # Configure voice
     cfg.voice.speaker_id = args.voice
-    voice_names = {5: "am_adam", 6: "am_michael (Deep American)", 9: "bm_george (Deep British)", 10: "bm_lewis"}
-    cfg.voice.speaker_name = voice_names.get(args.voice, "am_michael")
+    voice_names = {
+        0: "af_alloy (American Female)",
+        1: "af_bella (American Female - Expressive)",
+        2: "af_heart (American Female - Calm)",
+        3: "af_nicole (American Female - Gentle)",
+        4: "af_sarah (American Female - Confident)",
+        5: "am_adam (American Male - Conversational Default)",
+        6: "am_michael (American Male - Deep Documentary)",
+        7: "bf_emma (British Female - Articulate)",
+        8: "bf_isabella (British Female - Melodic)",
+        9: "bm_george (British Male - Resonant Historical)",
+        10: "bm_lewis (British Male - Smooth & Composed)"
+    }
+    cfg.voice.speaker_name = voice_names.get(args.voice, "am_adam")
 
     # Configure transition
     cfg.transition.default_transition = args.transition

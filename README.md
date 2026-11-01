@@ -112,13 +112,33 @@ Frame_003 = "and calculate how many hours remain until Friday."
 - **Narrator speaks only text**: Only the words inside the quotes are spoken by the voice actor.
 - **1 Line = 1 Frame**: Frame $N$ corresponds directly to narration line $N$.
 
-### Step 3: Run the CLI
+### Step 3: Choose Your Voice (11 Kokoro Voices Supported)
+The repository defaults to **`am_adam` (Voice ID 5)** for clean, engaging narration. You can choose any of the 11 built-in voices via `--voice`:
+
+| ID | Name | Accent | Gender | Tone & Best Use Case |
+|:---:|:---|:---:|:---:|:---|
+| **`5`** | **`am_adam`** | 🇺🇸 American | Male | **Repository Default**: Crisp, clear, conversational explainer |
+| **`6`** | **`am_michael`** | 🇺🇸 American | Male | **Documentary Default**: Deep, cinematic, grounded authority |
+| **`9`** | **`bm_george`** | 🇬🇧 British | Male | Deep, resonant, classical historical storyteller |
+| **`10`** | **`bm_lewis`** | 🇬🇧 British | Male | Warm, composed, relaxed British narration |
+| **`1`** | **`af_bella`** | 🇺🇸 American | Female | Warm, highly expressive, engaging character voice |
+| **`4`** | **`af_sarah`** | 🇺🇸 American | Female | Confident, professional, modern corporate & tech voice |
+| **`2`** | **`af_heart`** | 🇺🇸 American | Female | Soft, gentle, calm bedtime or reflective tone |
+| **`3`** | **`af_nicole`** | 🇺🇸 American | Female | Subtle, intimate, whispery narrative tone |
+| **`0`** | **`af_alloy`** | 🇺🇸 American | Female | Bright, upbeat, energetic pacing |
+| **`7`** | **`bf_emma`** | 🇬🇧 British | Female | Articulate, refined British academic tone |
+| **`8`** | **`bf_isabella`**| 🇬🇧 British | Female | Melodic, gentle British narrative tone |
+
+### Step 4: Run the CLI
 ```bash
-# Render a specific story:
+# Render with default voice (am_adam):
 python run.py "My Story Title"
 
-# Render with specific voice (6 = Deep American Narrator, 9 = Deep British Narrator):
+# Render with deep cinematic documentary voice (am_michael):
 python run.py "My Story Title" --voice 6
+
+# Render with dramatic British historical voice (bm_george):
+python run.py "My Story Title" --voice 9
 
 # Render all stories inside input/:
 python run.py --all
@@ -134,10 +154,29 @@ output/My Story Title/My Story Title.mp4
 ## 🤖 CLI Agent Operating Guide (Claude Code, Codex, Antigravity)
 
 If you are an autonomous coding agent executing or extending this codebase, adhere strictly to [AGENTS.md](AGENTS.md):
+- **Voice Selection**: Always default to voice `5` (`am_adam`) for general workflows. For carlotata's personal local projects, default to voice `6` (`am_michael`).
 - **Parity Invariant**: Ensure `len(discover_images(story_dir)) == len(clean_script_text(script_text))` before running.
 - **Motion System**: Keep camera moves limited strictly to `zoom_in`, `pan_right`, and `static`.
 - **Acoustic Alignment**: Never hardcode clip durations based on word estimates; rely on `align_narration_audio()` to measure real acoustic audio lengths.
 - **Output Purity**: Do not generate extraneous preview files, CapCut drafts, or intermediate debug clips in `output/`.
+
+---
+
+## 🤝 Credits & Open-Source Acknowledgements
+
+Photo Story Automate is built on top of incredible open-source research and engineering. Huge gratitude to the authors and maintainers of these projects:
+
+- **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)** by **Hexgrad**: State-of-the-art 82M-parameter lightweight text-to-speech model with extraordinary naturalness and human-like prosody.
+- **[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)** by **Next-gen Kaldi / k2-fsa**: Blazing-fast, dependency-free offline speech processing engine enabling real-time Kokoro TTS on standard CPUs without GPU dependencies.
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** by **SYSTRAN**: High-performance reimplementation of OpenAI's Whisper model via CTranslate2, powering microsecond-accurate acoustic forced alignment and word timestamps.
+- **[OpenAI Whisper](https://github.com/openai/whisper)**: Robust speech recognition foundational models.
+- **[FFmpeg](https://ffmpeg.org/)**: The swiss army knife of multimedia processing, providing high-precision Lanczos resampling, dynamic Zoompan Ken Burns transforms, and glitch-free Concat Demuxing.
+- **[Pillow](https://python-pillow.org/)**: Python Imaging Library for non-destructive resolution probing, aspect ratio detection, and EXIF processing.
+- **Typography**:
+  - **[Poppins](https://github.com/itfoundry/Poppins)** by Indian Type Foundry (SIL Open Font License).
+  - **[Anton](https://fonts.google.com/specimen/Anton)** by Vernon Adams (SIL Open Font License).
+  - **[Bebas Neue](https://fonts.google.com/specimen/Bebas+Neue)** by Ryoichi Tsunekawa (SIL Open Font License).
+- **[Antigravity CLI](https://github.com/google)**: Advanced agentic coding architecture and paired programming framework.
 
 ---
 
