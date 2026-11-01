@@ -3,8 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Video generation output & temporary work directories
-output/
+# Track output directory in git, but ignore generated video files
+output/*
+!output/.gitkeep
 work/
 
 # User story inputs (exclude heavy media; keep sample template)

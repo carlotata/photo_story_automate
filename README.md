@@ -85,17 +85,55 @@ python setup_model.py
 
 ---
 
-## 🎬 How to Run
+## 🎬 Step-by-Step Production Workflow
 
-### Step 1: Create Your Story Folder
-Create a story folder inside `input/`, for example:
+The system is designed around a zero-friction input-to-output workflow:
+
+```
+┌────────────────────────────────────────────────────────┐
+│  STEP 1: ADD CONTENT                                   │
+│  Drop your images & script.txt into:                   │
+│  input/<Story Title>/                                  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  STEP 2: RUN THE CLI                                   │
+│  python run.py "Story Title"                           │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  STEP 3: AUTOMATED ENGINE PIPELINE (WAIT)              │
+│  1. Kokoro TTS synthesizes high-fidelity narration     │
+│  2. faster-whisper pinpoints acoustic sentence bounds  │
+│  3. Scene Director maps 3 non-distracting Ken Burns    │
+│  4. FFmpeg renders 2K Lanczos motion clips             │
+│  5. Concat demuxer stitches seamless acoustic cuts     │
+│  6. Mixes diegetic Foley audio & burns ASS subtitles   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  STEP 4: COLLECT FINAL OUTPUT                          │
+│  Your completed pristine 2K video is ready at:         │
+│  output/<Story Title>/<Story Title>.mp4                │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Step 1: Create Your Story Folder in `input/`
+Create a story folder inside `input/` named after your project:
 ```
 input/My Story Title/
 ```
-Drop your image files (`Frame_001.jpg`, `Frame_002.jpg`, or subfolders `s1/`, `s2/`, etc.) and your `script.txt` inside.
+Inside this folder, drop:
+1. **Your Frame Images**: Can be named sequentially (`Frame_001.jpg`, `Frame_002.jpg`) or organized in segment subfolders (`s1/`, `s2/`, etc.). The engine automatically discovers all images and sorts them in natural numerical order.
+2. **Your Script (`script.txt`)**: Text file containing your story narrative.
 
 ### Step 2: Format Your `script.txt`
-You can write your script using standard instructional assignment format:
+You can write your script using the instructional assignment format:
 ```ini
 # OPTIONAL INSTRUCTIONAL COMMENTS
 # Any line starting with # or // is ignored.
