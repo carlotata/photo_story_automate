@@ -126,17 +126,18 @@ class VideoAssembler:
         for idx, (img_path, dur, sc) in enumerate(zip(images, durations, scenes_plan)):
             motion = sc.get("motion", "zoom_in")
             clip_path = work_story_dir / f"clip_{idx:05d}.mp4"
-            render_image_clip(
-                image_path=img_path,
-                output_clip_path=clip_path,
-                duration=dur,
-                motion_type=motion,
-                video_config=self.cfg.video,
-                kb_config=self.cfg.ken_burns
-            )
+            if not (clip_path.exists() and clip_path.stat().st_size > 1000):
+                render_image_clip(
+                    image_path=img_path,
+                    output_clip_path=clip_path,
+                    duration=dur,
+                    motion_type=motion,
+                    video_config=self.cfg.video,
+                    kb_config=self.cfg.ken_burns
+                )
             clip_paths.append((clip_path, dur))
             if (idx + 1) % 10 == 0 or (idx + 1) == num_images:
-                logger.info(f"Rendered Ken Burns clips: {idx + 1}/{num_images}")
+                logger.info(f"Rendered/Verified Ken Burns clips: {idx + 1}/{num_images}")
 
         # 7. Batch Stitching with Scene Transitions (Purposeful Cuts & Dissolves)
         batch_size = self.cfg.chunk_batch_size
