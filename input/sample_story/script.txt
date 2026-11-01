@@ -1,0 +1,10 @@
+# SAMPLE STORY SCRIPT
+# RULES:
+# 1. Ignore frame labels and comments when narrating.
+# 2. Only narration text inside quotation marks is read by Kokoro TTS.
+# 3. 1 line = 1 frame.
+
+SEGMENT 1: THE DISCOVERY
+Frame_001 = "High above the misty ridge, an ancient path winds into the unknown."
+Frame_002 = "The morning light breaks across the valley,"
+Frame_003 = "revealing ruins that time forgot."

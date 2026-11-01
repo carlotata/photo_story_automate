@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Video generation output & temporary work directories
+output/
+work/
+
+# User story inputs (exclude heavy media; keep sample template)
+input/*
+!input/.gitkeep
+!input/sample_story/
+!input/sample_story/script.txt
+
+# TTS Models (downloaded automatically via setup_model.py)
+assets/kokoro-en-v0_19/
+assets/*.tar.bz2
+assets/*.zip
+
+# Media artifacts
+*.mp4
+*.wav
+*.aac
+*.mp3
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
