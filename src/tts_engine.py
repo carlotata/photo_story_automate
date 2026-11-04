@@ -13,6 +13,100 @@ from .config import VoiceConfig
 
 logger = logging.getLogger("photo_story_narrator.tts")
 
+ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+        'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+        'seventeen', 'eighteen', 'nineteen']
+TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
+ORDINALS = {
+    '1st': 'first', '2nd': 'second', '3rd': 'third', '4th': 'fourth', '5th': 'fifth',
+    '6th': 'sixth', '7th': 'seventh', '8th': 'eighth', '9th': 'ninth', '10th': 'tenth',
+    '11th': 'eleventh', '12th': 'twelfth', '13th': 'thirteenth', '14th': 'fourteenth',
+    '15th': 'fifteenth', '16th': 'sixteenth', '17th': 'seventeenth', '18th': 'eighteenth',
+    '19th': 'nineteenth', '20th': 'twentieth', '21st': 'twenty-first'
+}
+
+def year_num_to_words(y: int) -> str:
+    if 1000 <= y <= 2099:
+        century = y // 100
+        decade = y % 100
+        if y == 2000:
+            return 'two thousand'
+        if 2001 <= y <= 2009:
+            return f'two thousand {ONES[decade]}'
+        c_str = ONES[century] if century < 20 else f'{TENS[century//10]} {ONES[century%10]}'.strip()
+        if decade == 0:
+            return f'{c_str} hundred'
+        elif decade < 20:
+            return f'{c_str} {ONES[decade]}'
+        else:
+            d_str = f'{TENS[decade//10]} {ONES[decade%10]}'.strip()
+            return f'{c_str} {d_str}'
+    return str(y)
+
+def replace_year(match):
+    prefix = match.group(1) or ""
+    year_str = match.group(2)
+    suffix = match.group(3)
+    y = int(year_str)
+    w = year_num_to_words(y)
+    if suffix:  # 1890s -> eighteen nineties
+        if w.endswith('y'):
+            w = w[:-1] + 'ies'
+        elif w.endswith('hundred'):
+            w = w + 's'
+        else:
+            w = w + 's'
+    return f'{prefix}{w}'
+
+def normalize_tts_text(text: str) -> str:
+    """Normalizes colloquial, shorthand, year, and time patterns for natural TTS speech.
+    - Converts '2:00 a.m.' -> '2 a.m.' so Kokoro doesn't say 'two zero zero a.m.'.
+    - Converts 'in 1500' / 'by 1950' / 'in 2026' -> 'in fifteen hundred' / 'by nineteen fifty' / 'by twenty twenty six'.
+    - Converts '1890s' / '1950s' -> 'eighteen nineties' / 'nineteen fifties'.
+    - Converts '14th century' -> 'fourteenth century'.
+    """
+    # 1. Clock times: 2:00 a.m. / 2:00 AM -> 2 a.m. / 2 AM
+    text = re.sub(r'\b(\d{1,2}):00\s*([ap]\.?m\.?)\b', r'\1 \2', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d{1,2}):00\b', r"\1 o'clock", text)
+
+    # 2. Ordinals: 14th century -> fourteenth century
+    for ord_digit, ord_word in ORDINALS.items():
+        text = re.sub(rf'\b{ord_digit}\b', ord_word, text, flags=re.IGNORECASE)
+
+    # 3. 4-Digit Years: e.g. in 1500, year 1500, by 1850, in the 1990s, by 2026
+    text = re.sub(r'\b(in\s+|year\s+|by\s+|since\s+|during\s+|around\s+|from\s+|to\s+)?(1[0-9]{3}|20[0-9]{2})(s)?\b', replace_year, text, flags=re.IGNORECASE)
+
+    return text
+
+def master_voice_audio(audio: np.ndarray, sample_rate: int = 24000) -> np.ndarray:
+    """Applies broadcast voice processing: DC-offset removal, transparent RMS leveling,
+    and soft-knee limiting to bring active speech to industry-standard ~-16 dBFS
+    with true peaks capped at -1.0 dBFS (0.89).
+    """
+    if len(audio) == 0:
+        return audio
+    
+    # 1. Remove DC offset
+    audio = audio - np.mean(audio)
+    
+    # 2. Measure active speech RMS (filtering out silence/gaps)
+    abs_audio = np.abs(audio)
+    speech_mask = abs_audio > 0.005
+    active_rms = np.sqrt(np.mean(audio[speech_mask]**2)) if np.any(speech_mask) else np.sqrt(np.mean(audio**2))
+    
+    # 3. Target active RMS: 0.155 (~ -16.2 dBFS / -14 to -15 LUFS standard)
+    target_rms = 0.155
+    gain = min(5.0, target_rms / max(1e-4, active_rms))
+    boosted = audio * gain
+    
+    # 4. Transparent soft-knee compression on peaks above ceiling (0.89 = -1.0 dBFS)
+    ceiling = 0.89
+    peak_val = np.max(np.abs(boosted))
+    if peak_val > ceiling:
+        boosted = np.tanh(boosted / ceiling) * ceiling
+        
+    return boosted
+
 def clean_script_text(raw_text: str) -> List[str]:
     """Splits raw text into natural narration lines, stripping comments and stage cues.
     Directly supports instructional Frame_XXX = "..." syntax (1 line = 1 frame).
@@ -33,6 +127,7 @@ def clean_script_text(raw_text: str) -> List[str]:
                 # Strip bracketed cues inside quotes
                 text = re.sub(r"\[.*?\]", "", text)
                 text = re.sub(r"\(.*?\)", "", text)
+                text = normalize_tts_text(text)
                 text = text.strip()
                 if text:
                     cleaned_lines.append(text)
@@ -49,6 +144,7 @@ def clean_script_text(raw_text: str) -> List[str]:
         # Remove bracketed cues like [Music], [Scene 1], (whispering), etc.
         line = re.sub(r"\[.*?\]", "", line)
         line = re.sub(r"\(.*?\)", "", line)
+        line = normalize_tts_text(line)
         line = line.strip()
         if not line:
             continue
@@ -125,7 +221,8 @@ class TTSEngine:
 
         for line_idx, line in enumerate(lines):
             try:
-                audio = self._tts.generate(line, sid=self.config.speaker_id, speed=self.config.speed)
+                line_tts = normalize_tts_text(line)
+                audio = self._tts.generate(line_tts, sid=self.config.speaker_id, speed=self.config.speed)
                 samples = np.array(audio.samples, dtype=np.float32)
             except Exception as e:
                 logger.error(f"Error generating TTS for line {line_idx}: {e}")
@@ -162,10 +259,9 @@ class TTSEngine:
             audio_chunks.append(gap_samples)
             cur_time += seg_dur + 0.28
 
-        # Combine audio and normalize peak
+        # Combine audio and master to broadcast loudness standard
         full_audio = np.concatenate(audio_chunks)
-        peak = max(1e-6, np.abs(full_audio).max())
-        full_audio = full_audio / peak * 0.95
+        full_audio = master_voice_audio(full_audio, sr)
 
         # Write WAV file
         with wave.open(str(output_wav_path), "wb") as wf:

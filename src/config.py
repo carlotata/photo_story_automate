@@ -37,8 +37,8 @@ class VideoConfig:
     width: int = 2560
     height: int = 1440
     fps: int = 25
-    crf: int = 16
-    preset: str = "medium"
+    crf: int = 18
+    preset: str = "fast"
     tune: str = "animation"
     scaling_flags: str = "lanczos+accurate_rnd"
     bitrate: str = "18000k"
@@ -57,8 +57,8 @@ class VoiceConfig:
     # 8: bf_isabella (British Female - Melodic)
     # 9: bm_george (British Male - Deep & Resonant Historical)
     # 10: bm_lewis (British Male - Smooth & Composed)
-    speaker_id: int = 5
-    speaker_name: str = "am_adam"
+    speaker_id: int = 6
+    speaker_name: str = "am_michael"
     speed: float = 1.02
     model_dir: Path = field(default_factory=find_kokoro_model_dir)
 
@@ -82,7 +82,7 @@ class SubtitleConfig:
 class KenBurnsConfig:
     zoom_min: float = 1.0
     zoom_max: float = 1.06
-    oversample_factor: float = 1.25        # Scale before zoompan for razor-sharp rendering
+    oversample_factor: float = 1.05        # Optimized scaling factor for high-speed rendering
     motion_types: Tuple[str, ...] = (
         "zoom_in",
         "pan_right",
@@ -110,3 +110,4 @@ class StoryConfig:
     ken_burns: KenBurnsConfig = field(default_factory=KenBurnsConfig)
     transition: TransitionConfig = field(default_factory=TransitionConfig)
     chunk_batch_size: int = 300
+    render_workers: int = 4

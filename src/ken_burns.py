@@ -121,8 +121,9 @@ def render_image_clip(
         str(output_clip_path)
     ]
 
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
     if res.returncode != 0:
-        raise RuntimeError(f"FFmpeg Ken Burns failed for {image_path.name}: {res.stderr}")
+        err_msg = res.stderr.strip() or res.stdout.strip() or f"exit code {res.returncode}"
+        raise RuntimeError(f"FFmpeg Ken Burns failed for {image_path.name}: {err_msg}")
 
     return output_clip_path

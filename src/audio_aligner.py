@@ -4,6 +4,7 @@ from the recorded audio waveform, ensuring 100% frame-to-speech accuracy.
 """
 
 import re
+import json
 import logging
 import subprocess
 from pathlib import Path
@@ -44,6 +45,17 @@ def align_narration_audio(
     voice_wav_path = Path(voice_wav_path)
     if not voice_wav_path.exists():
         raise FileNotFoundError(f"Voiceover audio not found at: {voice_wav_path}")
+
+    align_cache_path = voice_wav_path.with_name("voiceover_alignment.json")
+    if align_cache_path.exists():
+        try:
+            with open(align_cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            if len(cached.get("frames", [])) == num_frames:
+                logger.info(f"Reusing cached acoustic alignment across {num_frames} frames -> {align_cache_path.name}")
+                return cached
+        except Exception as e:
+            logger.warning(f"Failed to read cached alignment: {e}")
 
     logger.info(f"Acoustic alignment: loading waveform from '{voice_wav_path.name}'...")
     audio_array = load_audio_16k_mono(voice_wav_path)
@@ -198,8 +210,15 @@ def align_narration_audio(
             "end": w["end"]
         })
 
-    return {
+    result = {
         "frames": frame_timings,
         "words": sub_words,
         "total_duration": total_audio_dur
     }
+    try:
+        with open(align_cache_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to cache alignment: {e}")
+
+    return result

@@ -119,13 +119,18 @@ class VideoAssembler:
         durations = clip_durations
         logger.info(f"Acoustically pinpointed {num_images} clips to recorded audio waveform (total: {total_audio_dur:.2f}s)")
 
-        # 6. Render Butter-Smooth Scene-Directed Ken Burns Clips
-        clip_paths = []
-        logger.info(f"Rendering {num_images} scene-directed Ken Burns clips...")
+        # 6. Render Butter-Smooth Scene-Directed Ken Burns Clips (Parallelized)
+        num_workers = getattr(self.cfg, "render_workers", 4)
+        logger.info(f"Rendering {num_images} scene-directed Ken Burns clips using {num_workers} parallel workers...")
 
+        tasks = []
         for idx, (img_path, dur, sc) in enumerate(zip(images, durations, scenes_plan)):
             motion = sc.get("motion", "zoom_in")
             clip_path = work_story_dir / f"clip_{idx:05d}.mp4"
+            tasks.append((idx, img_path, clip_path, dur, motion))
+
+        def _render_task(task_args):
+            idx, img_path, clip_path, dur, motion = task_args
             if not (clip_path.exists() and clip_path.stat().st_size > 1000):
                 render_image_clip(
                     image_path=img_path,
@@ -135,9 +140,22 @@ class VideoAssembler:
                     video_config=self.cfg.video,
                     kb_config=self.cfg.ken_burns
                 )
-            clip_paths.append((clip_path, dur))
-            if (idx + 1) % 10 == 0 or (idx + 1) == num_images:
-                logger.info(f"Rendered/Verified Ken Burns clips: {idx + 1}/{num_images}")
+            return idx, clip_path, dur
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = [None] * num_images
+        completed_count = 0
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            future_to_idx = {executor.submit(_render_task, t): t[0] for t in tasks}
+            for future in as_completed(future_to_idx):
+                idx, clip_path, dur = future.result()
+                results[idx] = (clip_path, dur)
+                completed_count += 1
+                if completed_count % 10 == 0 or completed_count == num_images:
+                    logger.info(f"Rendered/Verified Ken Burns clips: {completed_count}/{num_images}")
+
+        clip_paths = results
 
         # 7. Batch Stitching with Scene Transitions (Purposeful Cuts & Dissolves)
         batch_size = self.cfg.chunk_batch_size

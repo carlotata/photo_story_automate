@@ -25,6 +25,10 @@ assets/*.zip
 *.aac
 *.mp3
 
+# Whitelist voice gallery samples so users can listen after cloning
+!voice_samples/
+!voice_samples/*
+
 # Virtual Environments
 .venv/
 venv/

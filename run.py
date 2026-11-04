@@ -40,13 +40,15 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Render photo slideshow with deep male Kokoro narration and synced subtitles.")
     parser.add_argument("story", nargs="?", default=None, help="Name of the story folder inside input/ (e.g. 'The Ancient Temple').")
     parser.add_argument("--script", "-s", type=str, default=None, help="Optional script override text or path to script file.")
-    parser.add_argument("--voice", "-v", type=int, default=5, choices=list(range(11)),
-                        help="Kokoro voice ID: 5 (am_adam - Conversational Male, Default), 6 (am_michael - Deep Documentary), 9 (bm_george - Deep British), 1 (af_bella - Expressive Female), 0-10 available.")
+    parser.add_argument("--voice", "-v", type=int, default=6, choices=list(range(11)),
+                        help="Kokoro voice ID: 6 (am_michael - Deep Documentary Narrator, Default), 5 (am_adam - Conversational Male), 9 (bm_george - Deep British), 1 (af_bella - Expressive Female), 0-10 available.")
     parser.add_argument("--aspect", "-a", type=str, default="auto", choices=["auto", "9:16", "16:9", "1:1"],
                         help="Aspect ratio: auto (detects from images), 9:16 (Shorts/Reels), 16:9 (Widescreen), 1:1 (Square).")
     parser.add_argument("--transition", "-t", type=str, default="random_cinematic",
                         choices=["random_cinematic", "cut", "blur", "dissolve", "zoomin", "slideleft"],
                         help="Transition style between images.")
+    parser.add_argument("--workers", "-w", type=int, default=4,
+                        help="Number of parallel render workers for Ken Burns clips (default: 4).")
     parser.add_argument("--no-capcut", action="store_true", help="Disable automatic CapCut draft project export.")
     parser.add_argument("--all", action="store_true", help="Render all story folders found inside input/.")
     return parser.parse_args()
@@ -103,8 +105,9 @@ def main():
     }
     cfg.voice.speaker_name = voice_names.get(args.voice, "am_adam")
 
-    # Configure transition
+    # Configure transition & workers
     cfg.transition.default_transition = args.transition
+    cfg.render_workers = max(1, args.workers)
 
     # Discover target story folders
     all_stories = discover_stories(cfg.input_dir)

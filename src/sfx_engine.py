@@ -288,6 +288,10 @@ def build_natural_soundtrack(
             voice_arr
         )
 
+    # Ensure voice track is broadcast-mastered for punch and clarity
+    from .tts_engine import master_voice_audio
+    voice_arr = master_voice_audio(voice_arr, SAMPLE_RATE)
+
     total_samples = len(voice_arr)
     total_dur = total_samples / SAMPLE_RATE
     sfx_track = np.zeros(total_samples, dtype=np.float32)
@@ -316,19 +320,20 @@ def build_natural_soundtrack(
                     gain=0.18
                 )
 
-    # 3. Dynamic Vocal Ducking
+    # 3. Dynamic Vocal Ducking (speech actively dips SFX)
     win_size = int(0.20 * SAMPLE_RATE)
     voice_env = np.convolve(np.abs(voice_arr), np.ones(win_size) / win_size, mode="same")
-    ducking = 1.0 - 0.40 * np.clip(voice_env / 0.12, 0.0, 1.0)
-    ducked_sfx = sfx_track * ducking * foley_master_gain
+    ducking = 1.0 - 0.50 * np.clip(voice_env / 0.10, 0.0, 1.0)
+    ducked_sfx = np.clip(sfx_track * ducking * foley_master_gain, -0.35, 0.35)
 
     # 4. Composite voice + SFX
     mixed = voice_arr + ducked_sfx
 
-    # 5. Normalization to -1.0 dBFS
-    max_val = np.abs(mixed).max()
-    if max_val > 0.001:
-        mixed = mixed / max_val * 0.89
+    # 5. Broadcast Soft-Knee Limiter to -1.0 dBFS (0.89)
+    ceiling = 0.89
+    peak_val = np.max(np.abs(mixed))
+    if peak_val > ceiling:
+        mixed = np.tanh(mixed / ceiling) * ceiling
 
     out_int16 = (np.clip(mixed, -1.0, 1.0) * 32767.0).astype(np.int16)
     with wave.open(str(output_mix_path), "wb") as wf:
