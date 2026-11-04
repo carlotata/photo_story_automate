@@ -1,0 +1,11 @@
+# SAMPLE LONG-FORM STORY SCRIPT
+# RULES:
+# 1. Ignore frame labels and comments when narrating.
+# 2. Only narration text inside quotation marks is read by Kokoro TTS.
+# 3. 1 line = 1 frame.
+# 4. Aspect ratio defaults to 16:9 Widescreen (2560x1440).
+
+SEGMENT 1: THE BEGINNING
+Frame_001 = "Deep in the archives of history, some events change civilization forever."
+Frame_002 = "Decades of quiet preparation led up to this single decisive moment,"
+Frame_003 = "and the world would never be the same again."

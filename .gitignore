@@ -17,6 +17,7 @@ work/
 # User story inputs (exclude heavy media; keep sample template)
 input/*
 !input/.gitkeep
+!input/README.md
 !input/shorts/
 input/shorts/*
 !input/shorts/.gitkeep
@@ -26,6 +27,9 @@ input/shorts/sample_story/*
 !input/long/
 input/long/*
 !input/long/.gitkeep
+!input/long/sample_story/
+input/long/sample_story/*
+!input/long/sample_story/script.txt
 
 # TTS Models (downloaded automatically via setup_model.py)
 assets/kokoro-en-v0_19/
