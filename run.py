@@ -55,12 +55,12 @@ def parse_args():
     while i < len(raw_args):
         arg = raw_args[i]
         lower_arg = arg.lower()
-        if lower_arg in ("/shorts", "shorts", "--shorts"):
+        if lower_arg in ("/photoshorts", "photoshorts", "/shorts", "shorts", "--shorts"):
             format_override = "shorts"
             if i + 1 < len(raw_args) and not raw_args[i + 1].startswith("-") and not raw_args[i + 1].startswith("/"):
                 story_override = raw_args[i + 1]
                 i += 1
-        elif lower_arg in ("/long", "long", "--long"):
+        elif lower_arg in ("/photolong", "photolong", "/long", "long", "--long"):
             format_override = "long"
             if i + 1 < len(raw_args) and not raw_args[i + 1].startswith("-") and not raw_args[i + 1].startswith("/"):
                 story_override = raw_args[i + 1]
@@ -218,8 +218,8 @@ def main():
                 print(f"     {i}. {s.name}")
 
         print("\nSpecify story to render:")
-        print("   Shorts: python run.py /shorts \"StoryName\"  or  /shorts")
-        print("   Long:   python run.py /long \"StoryName\"    or  /long")
+        print("   Shorts: python run.py /photoshorts \"StoryName\"  or  /photoshorts")
+        print("   Long:   python run.py /photolong \"StoryName\"    or  /photolong")
         print("   All:    python run.py --all\n")
         sys.exit(0)
     else:
