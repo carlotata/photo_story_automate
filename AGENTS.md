@@ -23,23 +23,30 @@ This file serves as the definitive reference for autonomous coding and operation
 
 ---
 
-## 2. Directory Layout & Workflow
+## 2. Directory Layout & Categorized Workflow
+
+The studio automatically separates **Short Form** and **Long Form** content:
 
 ```
 photo_story_narrator/
 ├── input/
-│   └── <Story Title>/               # Story directory
-│       ├── s1/ ... sN/ or *.jpg     # Frame images sorted by numerical index
-│       └── script.txt               # Narration script
+│   ├── shorts/                      # 📱 SHORT FORM CONTENT (9:16 vertical, <= 59.0s max)
+│   │   └── <Story Title>/           # Frame images & script.txt
+│   └── long/                        # 🎬 LONG FORM CONTENT (16:9 widescreen 2K)
+│       └── <Story Title>/           # Frame images & script.txt
 ├── output/
-│   └── <Story Title>/
-│       └── <Story Title>.mp4        # Pristine final video ONLY
+│   ├── shorts/
+│   │   └── <Story Title>/
+│   │       └── <Story Title>.mp4    # Pristine 9:16 video (strictly <= 59.0s)
+│   └── long/
+│       └── <Story Title>/
+│           └── <Story Title>.mp4    # Pristine 16:9 2K video
 ├── assets/
 │   ├── fonts/Poppins-Bold.ttf       # Subtitle typography
 │   └── kokoro-en-v0_19/             # ONNX model (installed via setup_model.py)
 ├── src/
 │   ├── audio_aligner.py             # Whisper acoustic boundary alignment
-│   ├── config.py                    # Global dataclass settings
+│   ├── config.py                    # Global dataclass settings (Shorts vs Long presets)
 │   ├── ken_burns.py                 # Centered Ken Burns motion filters
 │   ├── scene_director.py            # Shot intent & audio cue director
 │   ├── sfx_engine.py                # Diegetic narrative Foley mixer
@@ -51,9 +58,26 @@ photo_story_narrator/
 ├── AGENTS.md                        # Agent protocol specification
 ├── README.md                        # User documentation
 ├── requirements.txt                 # Python dependencies
-├── run.py                           # CLI entrypoint
+├── run.py                           # CLI entrypoint supporting /shorts and /long
 └── setup_model.py                   # One-click Kokoro ONNX model downloader
 ```
+
+---
+
+## 3. Format Specifications & Invariants
+
+### 📱 Short Form (input/shorts/ -> output/shorts/)
+- **Aspect Ratio**: 9:16 Vertical (`1440x2560`).
+- **Maximum Duration**: **Strictly 59.0 seconds maximum**. Under NO circumstances can a short exceed 59.0 seconds.
+- **Duration Auto-Protection**: If TTS voiceover exceeds 59.0s, the engine automatically applies FFmpeg audio tempo compression (`atempo`) targeting 58.5s and muxes with a `-t 59.0` hard clamp.
+- **Voice Default**: `am_adam` (ID: 5) for punchy, high-retention social commentary.
+- **Subtitles**: Bottom margin `margin_v=240` (safe zone above TikTok/Reels/Shorts UI), `font_size=68`, 3 words per karaoke pop.
+
+### 🎬 Long Form (input/long/ -> output/long/)
+- **Aspect Ratio**: 16:9 Widescreen 2K (`2560x1440`).
+- **Duration**: Uncapped documentary format (from 2 minutes to 60+ minutes).
+- **Voice Default**: `am_michael` (ID: 6) for deep, authoritative cinematic documentary narration.
+- **Subtitles**: Bottom margin `margin_v=150`, `font_size=72`, 3 words per karaoke pop.
 
 ---
 
@@ -102,20 +126,25 @@ ffmpeg -version
 
 ### Running the Pipeline:
 ```bash
-# Render specific story by title:
-python run.py "How the concept of a job was invented"
+# Render Short Form (9:16 vertical, <= 59.0s max):
+python run.py /shorts "Sample Short Title"
+# or run all shorts:
+python run.py /shorts --all
 
-# Render with specific Kokoro voice (6 = am_michael American Deep, 9 = bm_george British Deep):
-python run.py "Story Title" --voice 6
+# Render Long Form (16:9 widescreen 2K):
+python run.py /long "How the concept of a job was invented"
+# or run all long form stories:
+python run.py /long --all
 
-# Render all stories in input/:
-python run.py --all
+# Slash command shortcuts:
+# Typing /shorts or /long lists and runs the respective category directly.
 ```
 
 ---
 
 ## 5. Anti-Bloat & Safety Laws for Agents
-1. **Never export CapCut drafts** unless explicitly requested by the user.
-2. **Never add on-screen badges, banners, or intro titles**; explainer cartoons must remain pristine.
-3. **Never introduce diagonal Ken Burns camera paths**; only use `zoom_in`, `pan_right`, and `static`.
-4. **Never truncate clips with xfade filters**; use the concat demuxer for flawless multi-hundred-frame stitching.
+1. **Never exceed 59.0 seconds for Short Form**: Shorts must strictly stay <= 59.0s.
+2. **Never export CapCut drafts** unless explicitly requested by the user.
+3. **Never add on-screen badges, banners, or intro titles**; explainer cartoons must remain pristine.
+4. **Never introduce diagonal Ken Burns camera paths**; only use `zoom_in`, `pan_right`, and `static`.
+5. **Never truncate clips with xfade filters**; use the concat demuxer for flawless multi-hundred-frame stitching.

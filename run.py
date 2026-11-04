@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """CLI runner for Photo Story Narrator.
 
-Clean workflow:
-  input/<StoryTitle>/    -> Place images and script.txt here
-  output/<StoryTitle>/   -> Contains ONLY <StoryTitle>.mp4
+Categorized Workflow:
+  Short Form (9:16, <= 59s maximum):
+    input/shorts/<StoryTitle>/    -> Place images and script.txt here
+    output/shorts/<StoryTitle>/   -> Contains ONLY <StoryTitle>.mp4
+    Command: python run.py /shorts [StoryTitle]  or  /shorts
+
+  Long Form (16:9 2K Widescreen default):
+    input/long/<StoryTitle>/      -> Place images and script.txt here
+    output/long/<StoryTitle>/     -> Contains ONLY <StoryTitle>.mp4
+    Command: python run.py /long [StoryTitle]  or  /long
 """
 
 import sys
@@ -37,43 +44,90 @@ logging.basicConfig(
 logger = logging.getLogger("run")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Render photo slideshow with deep male Kokoro narration and synced subtitles.")
-    parser.add_argument("story", nargs="?", default=None, help="Name of the story folder inside input/ (e.g. 'The Ancient Temple').")
+    # Preprocess slash commands or shortcut keywords in sys.argv:
+    # Handles: python run.py /shorts [Story], python run.py /long [Story], etc.
+    raw_args = sys.argv[1:]
+    format_override = None
+    story_override = None
+
+    filtered_args = []
+    i = 0
+    while i < len(raw_args):
+        arg = raw_args[i]
+        lower_arg = arg.lower()
+        if lower_arg in ("/shorts", "shorts", "--shorts"):
+            format_override = "shorts"
+            if i + 1 < len(raw_args) and not raw_args[i + 1].startswith("-") and not raw_args[i + 1].startswith("/"):
+                story_override = raw_args[i + 1]
+                i += 1
+        elif lower_arg in ("/long", "long", "--long"):
+            format_override = "long"
+            if i + 1 < len(raw_args) and not raw_args[i + 1].startswith("-") and not raw_args[i + 1].startswith("/"):
+                story_override = raw_args[i + 1]
+                i += 1
+        else:
+            filtered_args.append(arg)
+        i += 1
+
+    parser = argparse.ArgumentParser(description="Photo Story Narrator: Automated video production for Short Form (9:16, <=59s) and Long Form (16:9 2K).")
+    parser.add_argument("story", nargs="?", default=story_override, help="Name of the story folder inside input/shorts/ or input/long/.")
+    parser.add_argument("--format", "-f", choices=["auto", "shorts", "long"], default=format_override or "auto",
+                        help="Content category: 'shorts' (9:16, <=59s max), 'long' (16:9 widescreen 2K), or 'auto'.")
     parser.add_argument("--script", "-s", type=str, default=None, help="Optional script override text or path to script file.")
-    parser.add_argument("--voice", "-v", type=int, default=6, choices=list(range(11)),
-                        help="Kokoro voice ID: 6 (am_michael - Deep Documentary Narrator, Default), 5 (am_adam - Conversational Male), 9 (bm_george - Deep British), 1 (af_bella - Expressive Female), 0-10 available.")
+    parser.add_argument("--voice", "-v", type=int, default=None, choices=list(range(11)),
+                        help="Kokoro voice ID: 6 (am_michael - Deep Documentary Narrator, Long default), 5 (am_adam - Conversational Male, Shorts default), 0-10 available.")
     parser.add_argument("--aspect", "-a", type=str, default="auto", choices=["auto", "9:16", "16:9", "1:1"],
-                        help="Aspect ratio: auto (detects from images), 9:16 (Shorts/Reels), 16:9 (Widescreen), 1:1 (Square).")
+                        help="Aspect ratio: auto (detects from category/images), 9:16 (Shorts), 16:9 (Long Widescreen), 1:1 (Square).")
     parser.add_argument("--transition", "-t", type=str, default="random_cinematic",
                         choices=["random_cinematic", "cut", "blur", "dissolve", "zoomin", "slideleft"],
                         help="Transition style between images.")
     parser.add_argument("--workers", "-w", type=int, default=4,
                         help="Number of parallel render workers for Ken Burns clips (default: 4).")
     parser.add_argument("--no-capcut", action="store_true", help="Disable automatic CapCut draft project export.")
-    parser.add_argument("--all", action="store_true", help="Render all story folders found inside input/.")
-    return parser.parse_args()
+    parser.add_argument("--all", action="store_true", help="Render all story folders found inside target category.")
+    
+    parsed = parser.parse_args(filtered_args)
+    if format_override and parsed.format == "auto":
+        parsed.format = format_override
+    if story_override and not parsed.story:
+        parsed.story = story_override
+    return parsed
 
 def main():
     args = parse_args()
     cfg = StoryConfig()
+    cfg.content_format = args.format
+
+    # Set default voice based on format if not explicitly supplied
+    if args.voice is None:
+        if args.format == "shorts":
+            args.voice = 5  # am_adam: crisp, conversational, punchy social pacing
+        else:
+            args.voice = 6  # am_michael: deep cinematic documentary narrator
 
     # Configure aspect ratio helper
-    def apply_aspect(aspect_choice: str, sample_img: Path = None):
-        if aspect_choice == "auto" and sample_img and sample_img.exists():
-            try:
-                from PIL import Image
-                with Image.open(sample_img) as im:
-                    w, h = im.size
-                aspect_choice = "16:9" if w > h else ("9:16" if h > w else "1:1")
-                logger.info(f"Auto-detected aspect ratio: {aspect_choice} from image {sample_img.name} ({w}x{h})")
-            except Exception:
+    def apply_aspect(aspect_choice: str, is_short_category: bool, sample_img: Path = None):
+        if aspect_choice == "auto":
+            if is_short_category:
+                aspect_choice = "9:16"
+            elif sample_img and sample_img.exists():
+                try:
+                    from PIL import Image
+                    with Image.open(sample_img) as im:
+                        w, h = im.size
+                    aspect_choice = "9:16" if h > w else "16:9"
+                    logger.info(f"Auto-detected aspect ratio: {aspect_choice} from image {sample_img.name} ({w}x{h})")
+                except Exception:
+                    aspect_choice = "16:9"
+            else:
                 aspect_choice = "16:9"
 
-        if aspect_choice == "16:9":
-            cfg.video.width = 2560
-            cfg.video.height = 1440
-            cfg.subtitle.margin_v = 150
-            cfg.subtitle.font_size = 72
+        if aspect_choice == "9:16":
+            cfg.video.width = 1440
+            cfg.video.height = 2560
+            cfg.subtitle.margin_v = 240
+            cfg.subtitle.font_size = 68
+            cfg.subtitle.words_per_group = 3
             cfg.subtitle.outline_width = 4.8
         elif aspect_choice == "1:1":
             cfg.video.width = 1440
@@ -81,11 +135,12 @@ def main():
             cfg.subtitle.margin_v = 130
             cfg.subtitle.font_size = 64
             cfg.subtitle.outline_width = 4.8
-        else: # 9:16
-            cfg.video.width = 1440
-            cfg.video.height = 2560
-            cfg.subtitle.margin_v = 180
-            cfg.subtitle.font_size = 64
+        else: # 16:9 Widescreen
+            cfg.video.width = 2560
+            cfg.video.height = 1440
+            cfg.subtitle.margin_v = 150
+            cfg.subtitle.font_size = 72
+            cfg.subtitle.words_per_group = 3
             cfg.subtitle.outline_width = 4.8
 
     # Configure voice
@@ -103,54 +158,76 @@ def main():
         9: "bm_george (British Male - Resonant Historical)",
         10: "bm_lewis (British Male - Smooth & Composed)"
     }
-    cfg.voice.speaker_name = voice_names.get(args.voice, "am_adam")
+    cfg.voice.speaker_name = voice_names.get(args.voice, "am_michael")
 
     # Configure transition & workers
     cfg.transition.default_transition = args.transition
     cfg.render_workers = max(1, args.workers)
 
-    # Discover target story folders
-    all_stories = discover_stories(cfg.input_dir)
+    # Ensure categorized folder structure exists
+    cfg.input_shorts_dir.mkdir(parents=True, exist_ok=True)
+    cfg.input_long_dir.mkdir(parents=True, exist_ok=True)
+    cfg.output_shorts_dir.mkdir(parents=True, exist_ok=True)
+    cfg.output_long_dir.mkdir(parents=True, exist_ok=True)
+
+    # Discover target story folders based on category
+    category_filter = None if args.format == "auto" else args.format
+    all_stories = discover_stories(cfg.input_dir, category=category_filter)
     target_stories = []
 
     if args.story:
-        # Check explicit story name or path
-        candidate = cfg.input_dir / args.story
-        if candidate.exists() and candidate.is_dir():
-            target_stories.append(candidate)
-        elif Path(args.story).exists() and Path(args.story).is_dir():
-            target_stories.append(Path(args.story))
+        # Check explicit story name across categorized paths
+        candidates = [
+            cfg.input_shorts_dir / args.story,
+            cfg.input_long_dir / args.story,
+            cfg.input_dir / args.story,
+            Path(args.story)
+        ]
+        found = None
+        for cand in candidates:
+            if cand.exists() and cand.is_dir():
+                found = cand
+                break
+        
+        if found:
+            target_stories.append(found)
         else:
-            logger.error(f"Story folder not found: '{args.story}' inside '{cfg.input_dir}'")
+            logger.error(f"Story folder not found: '{args.story}' in input/shorts/ or input/long/")
             sys.exit(1)
     elif args.all:
         target_stories = all_stories
     elif len(all_stories) == 1:
         target_stories = all_stories
     elif len(all_stories) > 1:
-        print("\nMultiple stories found in input/:")
-        for i, s in enumerate(all_stories, 1):
-            print(f"  {i}. {s.name}")
-        print("\nSpecify which story to render: python run.py \"StoryName\" or python run.py --all\n")
+        print("\nAvailable stories:")
+        shorts_list = [s for s in all_stories if "shorts" in [p.lower() for p in s.parts]]
+        long_list = [s for s in all_stories if "long" in [p.lower() for p in s.parts]]
+        other_list = [s for s in all_stories if s not in shorts_list and s not in long_list]
+
+        if shorts_list:
+            print("\n  📱 SHORT FORM (input/shorts/):")
+            for i, s in enumerate(shorts_list, 1):
+                print(f"     {i}. {s.name}")
+        if long_list:
+            print("\n  🎬 LONG FORM (input/long/):")
+            for i, s in enumerate(long_list, 1):
+                print(f"     {i}. {s.name}")
+        if other_list:
+            print("\n  📁 UNCATEGORIZED (input/):")
+            for i, s in enumerate(other_list, 1):
+                print(f"     {i}. {s.name}")
+
+        print("\nSpecify story to render:")
+        print("   Shorts: python run.py /shorts \"StoryName\"  or  /shorts")
+        print("   Long:   python run.py /long \"StoryName\"    or  /long")
+        print("   All:    python run.py --all\n")
         sys.exit(0)
     else:
-        # Check if user put images directly inside input/
-        from src.utils import discover_images
-        loose_images = discover_images(cfg.input_dir)
-        if loose_images:
-            # Wrap into a default story folder
-            default_dir = cfg.input_dir / "Default_Story"
-            default_dir.mkdir(parents=True, exist_ok=True)
-            for img in loose_images:
-                if img.parent == cfg.input_dir:
-                    import shutil
-                    shutil.move(str(img), str(default_dir / img.name))
-            target_stories.append(default_dir)
-        else:
-            print("\n[!] No story folders or images found in 'input/'.")
-            print("Create a story folder:  input/<Your Story Title>/")
-            print("and place your images (and optional script.txt) inside it.\n")
-            sys.exit(1)
+        print("\n[!] No story folders found in 'input/shorts/' or 'input/long/'.")
+        print("Place your story folder inside:")
+        print("   - input/shorts/<Story Title>/ (for 9:16 short form, <=59s)")
+        print("   - input/long/<Story Title>/   (for 16:9 long form 2K)\n")
+        sys.exit(1)
 
     # Optional script text override
     script_text = None
@@ -165,11 +242,11 @@ def main():
 
     for s_dir in target_stories:
         try:
-            # Auto-detect aspect ratio per story if set to auto
             from src.utils import discover_images
             story_imgs = discover_images(s_dir)
             first_img = story_imgs[0] if story_imgs else None
-            apply_aspect(args.aspect, first_img)
+            is_short = (args.format == "shorts") or ("shorts" in [p.lower() for p in s_dir.parts])
+            apply_aspect(args.aspect, is_short, first_img)
 
             assembler = VideoAssembler(cfg)
             out_file = assembler.build_story(
@@ -184,7 +261,8 @@ def main():
     print("\n" + "=" * 60)
     print(f"🎉 RENDER SUMMARY: {len(rendered_videos)} story video(s) created:")
     for v in rendered_videos:
-        print(f"   🎬 {v.parent.name}: {v}")
+        cat = "📱 SHORT FORM" if "shorts" in [p.lower() for p in v.parts] else "🎬 LONG FORM"
+        print(f"   [{cat}] {v.parent.name}: {v}")
     print("=" * 60 + "\n")
 
 if __name__ == "__main__":

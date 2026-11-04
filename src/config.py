@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE_ROOT = PROJECT_ROOT.parent
@@ -101,9 +101,15 @@ class TransitionConfig:
 @dataclass
 class StoryConfig:
     input_dir: Path = PROJECT_ROOT / "input"
+    input_shorts_dir: Path = PROJECT_ROOT / "input" / "shorts"
+    input_long_dir: Path = PROJECT_ROOT / "input" / "long"
     output_dir: Path = PROJECT_ROOT / "output"
+    output_shorts_dir: Path = PROJECT_ROOT / "output" / "shorts"
+    output_long_dir: Path = PROJECT_ROOT / "output" / "long"
     work_dir: Path = PROJECT_ROOT / "work"
     assets_dir: Path = PROJECT_ROOT / "assets"
+    content_format: str = "auto"          # "auto", "shorts", or "long"
+    max_duration: Optional[float] = None  # 59.0s maximum enforced for shorts
     video: VideoConfig = field(default_factory=VideoConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     subtitle: SubtitleConfig = field(default_factory=SubtitleConfig)

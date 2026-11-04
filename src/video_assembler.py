@@ -40,12 +40,61 @@ class VideoAssembler:
         script_text: Optional[str] = None,
         export_capcut: bool = False
     ) -> Path:
-        """Processes a single story folder from input/<StoryTitle>/ to output/<StoryTitle>/<StoryTitle>.mp4."""
+        """Processes a single story folder from input/<StoryTitle>/ to output/<shorts|long>/<StoryTitle>/<StoryTitle>.mp4."""
         story_dir = Path(story_dir)
         story_title = sanitize_title(story_dir.name)
 
-        # Clean output folder: output/<StoryTitle>/
-        output_story_dir = self.cfg.output_dir / story_title
+        # 1. Discover images first to inspect aspect ratio
+        images = discover_images(story_dir)
+        if not images:
+            raise ValueError(f"No images found inside '{story_dir}'. Please paste photos inside this folder.")
+
+        num_images = len(images)
+        logger.info(f"Discovered {num_images} images in '{story_dir.name}'.")
+
+        # 2. Determine content format (shorts vs long)
+        is_short = False
+        parts_lower = [p.lower() for p in story_dir.parts]
+        if getattr(self.cfg, "content_format", "auto") == "shorts":
+            is_short = True
+        elif getattr(self.cfg, "content_format", "auto") == "long":
+            is_short = False
+        elif "shorts" in parts_lower or "short" in parts_lower:
+            is_short = True
+        elif "long" in parts_lower:
+            is_short = False
+        else:
+            # Check aspect ratio of images
+            first_img = images[0] if images else None
+            if first_img:
+                try:
+                    from PIL import Image
+                    with Image.open(first_img) as im:
+                        w, h = im.size
+                    is_short = (h > w)
+                except Exception:
+                    is_short = False
+
+        # Apply short vs long configuration
+        if is_short:
+            logger.info("Category: SHORT FORM (9:16 vertical, 59s maximum ceiling enforced)")
+            self.cfg.video.width = 1440
+            self.cfg.video.height = 2560
+            self.cfg.subtitle.margin_v = 240
+            self.cfg.subtitle.font_size = 68
+            self.cfg.subtitle.words_per_group = 3
+            out_base = getattr(self.cfg, "output_shorts_dir", self.cfg.output_dir / "shorts")
+        else:
+            logger.info("Category: LONG FORM (16:9 widescreen 2K default)")
+            self.cfg.video.width = 2560
+            self.cfg.video.height = 1440
+            self.cfg.subtitle.margin_v = 150
+            self.cfg.subtitle.font_size = 72
+            self.cfg.subtitle.words_per_group = 3
+            out_base = getattr(self.cfg, "output_long_dir", self.cfg.output_dir / "long")
+
+        # Clean output folder: output/<shorts|long>/<StoryTitle>/
+        output_story_dir = out_base / story_title
         output_story_dir.mkdir(parents=True, exist_ok=True)
         final_mp4 = output_story_dir / f"{story_title}.mp4"
 
@@ -54,14 +103,6 @@ class VideoAssembler:
         work_story_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"--- Processing Story: '{story_title}' ---")
-
-        # 1. Discover images
-        images = discover_images(story_dir)
-        if not images:
-            raise ValueError(f"No images found inside '{story_dir}'. Please paste photos inside this folder.")
-
-        num_images = len(images)
-        logger.info(f"Discovered {num_images} images in '{story_dir.name}'.")
 
         # 2. Read script
         if not script_text:
@@ -76,6 +117,27 @@ class VideoAssembler:
         voice_wav_path = work_story_dir / "voiceover.wav"
         tts_meta = self.tts.generate_narration(script_text, voice_wav_path)
         total_audio_dur = tts_meta["total_duration"]
+
+        # SHORT FORM POLICY: 59 seconds maximum, do not exceed
+        if is_short and total_audio_dur > 59.0:
+            target_dur = 58.5
+            speed_ratio = total_audio_dur / target_dur
+            logger.warning(
+                f"[Shorts Policy] Generated audio ({total_audio_dur:.2f}s) exceeds 59s limit. "
+                f"Accelerating audio tempo by {speed_ratio:.2f}x to guarantee <= 59.0s..."
+            )
+            adjusted_wav = work_story_dir / "voiceover_adjusted.wav"
+            cmd_tempo = [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-i", str(voice_wav_path),
+                "-filter:a", f"atempo={speed_ratio:.4f}",
+                str(adjusted_wav)
+            ]
+            res_tempo = subprocess.run(cmd_tempo, capture_output=True, text=True)
+            if res_tempo.returncode == 0 and adjusted_wav.exists():
+                shutil.move(str(adjusted_wav), str(voice_wav_path))
+                total_audio_dur = target_dur
+                tts_meta["total_duration"] = target_dur
 
         # 4. Acoustic Forced Alignment directly from the recorded audio waveform
         alignment_res = align_narration_audio(
@@ -220,8 +282,10 @@ class VideoAssembler:
             "-b:a", "192k",
             "-shortest",
             "-pix_fmt", "yuv420p",
-            str(final_mp4)
         ]
+        if is_short:
+            cmd_final.extend(["-t", "59.0"])
+        cmd_final.append(str(final_mp4))
 
         res = subprocess.run(cmd_final, capture_output=True, text=True)
         if res.returncode != 0:

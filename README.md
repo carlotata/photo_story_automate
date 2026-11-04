@@ -30,14 +30,19 @@ Designed to run completely autonomously via standard terminal commands or throug
 ## 📁 Repository Structure
 
 ```
-photo_story_automate/
+photo_story_narrator/
 ├── input/
-│   └── <Story Title>/               # Story directory
-│       ├── s1/ ... sN/ or *.jpg     # Frame images sorted numerically
-│       └── script.txt               # Narration script
+│   ├── shorts/                      # 📱 SHORT FORM (9:16 vertical, <= 59.0s max)
+│   │   └── <Story Title>/           # Frame images & script.txt
+│   └── long/                        # 🎬 LONG FORM (16:9 widescreen 2K)
+│       └── <Story Title>/           # Frame images & script.txt
 ├── output/
-│   └── <Story Title>/
-│       └── <Story Title>.mp4        # Pristine 2K final video ONLY
+│   ├── shorts/
+│   │   └── <Story Title>/
+│   │       └── <Story Title>.mp4    # Pristine 9:16 video (strictly <= 59.0s)
+│   └── long/
+│       └── <Story Title>/
+│           └── <Story Title>.mp4    # Pristine 16:9 2K video
 ├── assets/
 │   ├── fonts/Poppins-Bold.ttf       # Subtitle typography
 │   └── kokoro-en-v0_19/             # ONNX model (installed via setup_model.py)
@@ -55,71 +60,39 @@ photo_story_automate/
 ├── AGENTS.md                        # CLI agent operating protocol
 ├── README.md                        # Documentation
 ├── requirements.txt                 # Python dependencies
-├── run.py                           # CLI entrypoint
+├── run.py                           # CLI entrypoint supporting /shorts and /long
 └── setup_model.py                   # Automatic Kokoro model downloader
-```
-
----
-
-## 🚀 Quick Start
-
-### 1. Prerequisites
-- **Python**: 3.10 or higher.
-- **FFmpeg**: Must be installed and available on your system `PATH`.
-  ```bash
-  ffmpeg -version
-  ```
-
-### 2. Installation
-```bash
-# Clone the repository
-git clone https://github.com/carlotata/photo_story_automate.git
-cd photo_story_automate
-
-# Install Python requirements
-pip install -r requirements.txt
-
-# Download Kokoro TTS ONNX model (~330MB)
-python setup_model.py
 ```
 
 ---
 
 ## 🎬 Step-by-Step Production Workflow
 
-The system is designed around a zero-friction input-to-output workflow:
+The system is designed around dedicated **Short Form** and **Long Form** workflows:
 
-```
-┌────────────────────────────────────────────────────────┐
-│  STEP 1: ADD CONTENT                                   │
-│  Drop your images & script.txt into:                   │
-│  input/<Story Title>/                                  │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│  STEP 2: RUN THE CLI                                   │
-│  python run.py "Story Title"                           │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│  STEP 3: AUTOMATED ENGINE PIPELINE (WAIT)              │
-│  1. Kokoro TTS synthesizes high-fidelity narration     │
-│  2. faster-whisper pinpoints acoustic sentence bounds  │
-│  3. Scene Director maps 3 non-distracting Ken Burns    │
-│  4. FFmpeg renders 2K Lanczos motion clips             │
-│  5. Concat demuxer stitches seamless acoustic cuts     │
-│  6. Mixes diegetic Foley audio & burns ASS subtitles   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│  STEP 4: COLLECT FINAL OUTPUT                          │
-│  Your completed pristine 2K video is ready at:         │
-│  output/<Story Title>/<Story Title>.mp4                │
-└────────────────────────────────────────────────────────┘
-```
+### 📱 Short Form (9:16 Vertical, <= 59.0s Max Duration)
+1. Drop images and `script.txt` into `input/shorts/<Story Title>/`.
+2. Run:
+   ```bash
+   python run.py /shorts "Story Title"
+   # Or simply type /shorts
+   ```
+3. Final 9:16 video is published to:
+   ```
+   output/shorts/<Story Title>/<Story Title>.mp4
+   ```
+
+### 🎬 Long Form (16:9 Widescreen 2K)
+1. Drop images and `script.txt` into `input/long/<Story Title>/`.
+2. Run:
+   ```bash
+   python run.py /long "Story Title"
+   # Or simply type /long
+   ```
+3. Final 16:9 2K video is published to:
+   ```
+   output/long/<Story Title>/<Story Title>.mp4
+   ```
 
 ---
 

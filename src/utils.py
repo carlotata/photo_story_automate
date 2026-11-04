@@ -20,20 +20,56 @@ def sanitize_title(title: str) -> str:
     cleaned = re.sub(r'[\\/*?:"<>|]', "", title).strip()
     return cleaned if cleaned else "Untitled_Story"
 
-def discover_stories(input_root: Path) -> List[Path]:
-    """Finds all story subdirectories inside input/ that contain images or files."""
+def discover_stories(input_root: Path, category: Optional[str] = None) -> List[Path]:
+    """Finds all story subdirectories inside input/ (including categorized subfolders input/shorts and input/long)."""
     input_root = Path(input_root)
     if not input_root.exists():
         return []
 
     stories = []
+
+    # Category filter
+    if category in ("shorts", "short"):
+        shorts_dir = input_root / "shorts" if input_root.name.lower() != "shorts" else input_root
+        if shorts_dir.exists():
+            for item in sorted(shorts_dir.iterdir()):
+                if item.is_dir() and not item.name.startswith("."):
+                    if discover_images(item):
+                        stories.append(item)
+        return stories
+
+    if category in ("long", "longs"):
+        long_dir = input_root / "long" if input_root.name.lower() != "long" else input_root
+        if long_dir.exists():
+            for item in sorted(long_dir.iterdir()):
+                if item.is_dir() and not item.name.startswith("."):
+                    if discover_images(item):
+                        stories.append(item)
+        return stories
+
+    # If no category specified, check categorized folders first:
+    for cat_name in ["shorts", "long"]:
+        cat_dir = input_root / cat_name
+        if cat_dir.exists() and cat_dir.is_dir():
+            for item in sorted(cat_dir.iterdir()):
+                if item.is_dir() and not item.name.startswith("."):
+                    if discover_images(item):
+                        stories.append(item)
+
+    # Then check any top-level story folders in input_root (excluding 'shorts' & 'long')
     for item in sorted(input_root.iterdir()):
-        if item.is_dir() and not item.name.startswith("."):
-            # Check if directory contains images
-            imgs = discover_images(item)
-            if imgs:
+        if item.is_dir() and not item.name.startswith(".") and item.name.lower() not in ("shorts", "short", "long", "longs"):
+            if discover_images(item):
                 stories.append(item)
-    return stories
+
+    # Return unique paths preserving discovery order
+    seen = set()
+    unique_stories = []
+    for s in stories:
+        if s not in seen:
+            seen.add(s)
+            unique_stories.append(s)
+    return unique_stories
 
 def frame_sort_key(p: Path):
     """Sorts images by explicit frame index (e.g. S1-FRAME-1, Frame_046, Frame_103),
@@ -55,6 +91,8 @@ def discover_images(story_dir: Path) -> List[Path]:
             p = Path(root) / f
             parts_lower = [part.lower() for part in p.parts]
             if any(ref in parts_lower for ref in ["references", "reference", "ref", "refs"]):
+                continue
+            if any(term in p.name.lower() for term in ["thumb", "thumbnail"]):
                 continue
             if p.suffix.lower() in SUPPORTED_EXTENSIONS:
                 candidates.append(p)
