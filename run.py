@@ -98,12 +98,9 @@ def main():
     cfg = StoryConfig()
     cfg.content_format = args.format
 
-    # Set default voice based on format if not explicitly supplied
+    # Set default voice (am_michael ID 6 used across both shorts and long by default)
     if args.voice is None:
-        if args.format == "shorts":
-            args.voice = 5  # am_adam: crisp, conversational, punchy social pacing
-        else:
-            args.voice = 6  # am_michael: deep cinematic documentary narrator
+        args.voice = 6  # am_michael: deep cinematic documentary narrator
 
     # Configure aspect ratio helper
     def apply_aspect(aspect_choice: str, is_short_category: bool, sample_img: Path = None):
