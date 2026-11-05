@@ -84,7 +84,7 @@ photo_story_narrator/
 When authoring or verifying `script.txt`, agents must enforce the following rules:
 
 ### A. Format Support
-Both standard plain-text (1 line = 1 frame) and instructional assignment syntax are natively supported:
+Standard plain-text (1 line = 1 frame), instructional assignment syntax, and full Studio Episode Specs are all natively supported:
 ```ini
 # OPTIONAL RULES & COMMENTS
 # Lines starting with # or // are ignored by TTS.
@@ -95,13 +95,20 @@ Frame_002 = "stare at the ceiling,"
 Frame_003 = "and calculate how many hours remain until Friday."
 ```
 
-### B. What the Engine Automatically Strips (NEVER SPOKEN):
+### B. Pasted Episode Production Specs
+Whenever a user pastes a full Episode Spec (containing metadata, CAST NOTE, REFERENCES, FRAMES, and VOICEOVER):
+- **Immediate Identification**: Recognize it as the episode script specification.
+- **Project Folder Setup**: Create the story directory under `input/shorts/<Episode Title>/` or `input/long/<Episode Title>/`.
+- **Include Script & Spec**: Write `script.txt` (containing the VOICEOVER block or clean narration lines) and `prompt_spec.txt` (the entire original pasted spec) into that folder.
+- **Frame Assets**: Expect frames to be placed in the directory as image files or as an `EPISODE XX.zip` archive (which auto-extracts).
+
+### C. What the Engine Automatically Strips (NEVER SPOKEN):
 - The `Frame_XXX = ` or `- Frame_XXX = ` prefix.
 - All comments (`#`, `//`).
 - All segment headers (`SEGMENT 1: ...`).
-- Only the clean text inside quotes is passed to Kokoro TTS.
+- Only the clean text inside quotes or `VOICEOVER:` is passed to Kokoro TTS.
 
-### C. Parity Invariant:
+### D. Parity Invariant:
 - Total discovered frame images **MUST** equal total script lines:
   $$\text{count}(\text{images}) = \text{count}(\text{lines})$$
 - Frame sorting uses numerical natural sorting (`Frame_001`, `Frame_002` ... `Frame_420`).
@@ -146,3 +153,4 @@ python run.py /long --all
 3. **Never add on-screen badges, banners, or intro titles**; explainer cartoons must remain pristine.
 4. **Never introduce diagonal Ken Burns camera paths**; only use `zoom_in`, `pan_right`, and `static`.
 5. **Never truncate clips with xfade filters**; use the concat demuxer for flawless multi-hundred-frame stitching.
+6. **Never invoke Browsentic or any image generation tools**: The user/system handles frame generation externally and supplies the frames as image files or `.zip` archives. Agents must never attempt to generate images or control the browser for image creation.

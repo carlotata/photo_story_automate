@@ -106,7 +106,9 @@ Inside this folder, drop:
 2. **Your Script (`script.txt`)**: Text file containing your story narrative.
 
 ### Step 2: Format Your `script.txt`
-You can write your script using the instructional assignment format:
+You can write your script using standard plain text, the instructional assignment format, or paste full Episode Production Specs directly:
+
+#### Format A: Instructional Assignment
 ```ini
 # OPTIONAL INSTRUCTIONAL COMMENTS
 # Any line starting with # or // is ignored.
@@ -117,10 +119,15 @@ Frame_002 = "stare at the ceiling,"
 Frame_003 = "and calculate how many hours remain until Friday."
 ```
 
-#### 🛡️ Built-in Parser Guarantees:
+#### Format B: Full Episode Production Spec
+You can paste full studio specs containing metadata, character turnarounds, environment descriptions, and a final `VOICEOVER:` block. The engine automatically parses the narration lines and pairs them with discovered frames.
+
+#### 🛡️ Built-in Parser & Archive Guarantees:
+- **Zero Image Tool Generation**: Frame images are generated externally and provided directly in the story folder or dropped as a `.zip` archive. The engine and agents never invoke browser or image generation tools.
+- **Auto Zip Unpacking**: Dropping `EPISODE XX.zip` into `input/shorts/` automatically extracts into the story folder on pipeline execution.
 - **Prefixes are stripped**: `Frame_001 =`, `- Frame_001 =`, or `FRAME 1 =` are automatically removed.
 - **Headers & comments ignored**: `SEGMENT 1:` and `#` notes are skipped completely.
-- **Narrator speaks only text**: Only the words inside the quotes are spoken by the voice actor.
+- **Narrator speaks only text**: Only the words inside the quotes or `VOICEOVER:` block are spoken by the voice actor.
 - **1 Line = 1 Frame**: Frame $N$ corresponds directly to narration line $N$.
 
 ### Step 3: Choose Your Voice (11 Kokoro Voices Supported)
@@ -165,6 +172,8 @@ output/My Story Title/My Story Title.mp4
 ## 🤖 CLI Agent Operating Guide (Claude Code, Codex, Antigravity)
 
 If you are an autonomous coding agent executing or extending this codebase, adhere strictly to [AGENTS.md](AGENTS.md):
+- **Pasted Episode Specs as Scripts**: When a user pastes a full Episode Spec (CAST NOTE, REFERENCES, FRAMES, VOICEOVER), recognize it immediately as the script definition. Create the corresponding project folder under `input/shorts/<Story Title>/` or `input/long/<Story Title>/` containing `script.txt` (the clean narration) and `prompt_spec.txt`.
+- **Zero External Image Generation**: Never use `browsentic`, browser automation, or image generation tools. Frames are pre-generated externally by the user and delivered directly or via auto-extracted zip files.
 - **Voice Selection**: Always default to voice `5` (`am_adam`) for general workflows. For carlotata's personal local projects, default to voice `6` (`am_michael`).
 - **Parity Invariant**: Ensure `len(discover_images(story_dir)) == len(clean_script_text(script_text))` before running.
 - **Motion System**: Keep camera moves limited strictly to `zoom_in`, `pan_right`, and `static`.
