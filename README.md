@@ -172,7 +172,12 @@ output/My Story Title/My Story Title.mp4
 ## 🤖 CLI Agent Operating Guide (Claude Code, Codex, Antigravity)
 
 If you are an autonomous coding agent executing or extending this codebase, adhere strictly to [AGENTS.md](AGENTS.md):
-- **Pasted Episode Specs as Scripts**: When a user pastes a full Episode Spec (CAST NOTE, REFERENCES, FRAMES, VOICEOVER), recognize it immediately as the script definition. Create the corresponding project folder under `input/shorts/<Story Title>/` or `input/long/<Story Title>/` containing `script.txt` (the clean narration) and `prompt_spec.txt`.
+- **Universal Slash Commands & Pasted Specs (`/photoshorts`, `/photolong`, `/shorts`, `/long`)**: When the user provides a script or full Episode Spec (with or without a slash command prefix):
+  1. Detect the episode title, target format (Shorts vs Long), and script lines.
+  2. Create the target project folder: `input/shorts/<Title>/` or `input/long/<Title>/`.
+  3. Save `script.txt` and `prompt_spec.txt`.
+  4. Auto-detect any corresponding `.zip` file or folder, unpack archive, and clean up.
+  5. Audit frame parity: verify that frame count equals script line count and that frames are in strict numerical sequence.
 - **Zero External Image Generation**: Never use `browsentic`, browser automation, or image generation tools. Frames are pre-generated externally by the user and delivered directly or via auto-extracted zip files.
 - **Voice Selection**: Always default to voice `5` (`am_adam`) for general workflows. For carlotata's personal local projects, default to voice `6` (`am_michael`).
 - **Parity Invariant**: Ensure `len(discover_images(story_dir)) == len(clean_script_text(script_text))` before running.

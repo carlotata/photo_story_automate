@@ -95,12 +95,18 @@ Frame_002 = "stare at the ceiling,"
 Frame_003 = "and calculate how many hours remain until Friday."
 ```
 
-### B. Pasted Episode Production Specs
-Whenever a user pastes a full Episode Spec (containing metadata, CAST NOTE, REFERENCES, FRAMES, and VOICEOVER):
-- **Immediate Identification**: Recognize it as the episode script specification.
-- **Project Folder Setup**: Create the story directory under `input/shorts/<Episode Title>/` or `input/long/<Episode Title>/`.
-- **Include Script & Spec**: Write `script.txt` (containing the VOICEOVER block or clean narration lines) and `prompt_spec.txt` (the entire original pasted spec) into that folder.
-- **Frame Assets**: Expect frames to be placed in the directory as image files or as an `EPISODE XX.zip` archive (which auto-extracts).
+### B. Pasted Episode Production Specs & Slash Commands (/photoshorts, /photolong, /shorts, /long)
+Whenever a user triggers a command (`/photoshorts`, `/photolong`, `/shorts`, `/long`) with a pasted script format, OR directly pastes an Episode Production Spec (containing metadata, CAST NOTE, REFERENCES, FRAMES, and VOICEOVER):
+1. **Immediate Recognition**: Identify it as the official episode script definition and extract the Title and Target Category (Shorts: vertical 9:16, <=59.0s; Long: widescreen 16:9 2K).
+2. **Project Folder Setup**: Create the story folder at `input/shorts/<Episode Title>/` or `input/long/<Episode Title>/`.
+3. **Include Script & Spec**: Write `script.txt` (the clean VOICEOVER block) and `prompt_spec.txt` (the complete pasted specification).
+4. **Auto-Detect Folder or Archive**: Search `input/shorts/`, `input/long/`, or `input/` for a matching folder or archive (e.g. `EPISODE XX.zip` or `<Title>.zip`). Auto-extract the archive directly into the story folder and remove the `.zip`.
+5. **Frame Verification & Parity Audit**:
+   - Check all discovered frame images in natural numerical order (`E03_F001` ... `E03_F014` or `Frame_001` ... `Frame_N`).
+   - Validate parity: $\text{count}(\text{images}) == \text{count}(\text{lines})$.
+   - Confirm aspect ratio / resolution orientation.
+   - Flag any missing, misnumbered, or duplicate frames immediately.
+6. **Execution Readiness**: Confirm status to user and proceed to render or stand ready for the render command.
 
 ### C. What the Engine Automatically Strips (NEVER SPOKEN):
 - The `Frame_XXX = ` or `- Frame_XXX = ` prefix.
