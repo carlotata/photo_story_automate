@@ -119,9 +119,10 @@ def clean_script_text(raw_text: str) -> List[str]:
     lines = raw_text.strip().splitlines()
 
     # 1. Check for NARRATION: "..." lines in full episode specs
-    narration_matches = re.findall(r'NARRATION:\s*["“](.*?)["”]', raw_text, re.IGNORECASE)
+    narration_matches = re.findall(r'NARRATION:\s*["“]([\s\S]*?)["”]', raw_text, re.IGNORECASE)
     if narration_matches:
         for text in narration_matches:
+            text = re.sub(r'\s+', ' ', text)
             text = re.sub(r"\[.*?\]", "", text)
             text = re.sub(r"\(.*?\)", "", text)
             text = normalize_tts_text(text).strip()
@@ -150,9 +151,9 @@ def clean_script_text(raw_text: str) -> List[str]:
     if has_frame_assignments:
         for line in lines:
             line = line.strip()
-            m = re.search(r"^\s*[-*•]?\s*Frame[-_]?\d+\s*=\s*[\"'](.*?)[\"']", line, re.I)
+            m = re.search(r'^\s*[-*•]?\s*Frame[-_]?\d+\s*=\s*(["\'])(.*?)\1', line, re.I)
             if m:
-                text = m.group(1).strip()
+                text = m.group(2).strip()
                 text = re.sub(r"\[.*?\]", "", text)
                 text = re.sub(r"\(.*?\)", "", text)
                 text = normalize_tts_text(text).strip()
