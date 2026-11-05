@@ -14,7 +14,6 @@ from .ken_burns import render_image_clip
 from .transitions import stitch_batch_xfade, stitch_clips_cut
 from .subtitle_gen import SubtitleGenerator
 from .scene_director import direct_story
-from .sfx_engine import build_natural_soundtrack
 from .audio_aligner import align_narration_audio
 from .utils import discover_images, find_story_script, calculate_image_durations, sanitize_title, cleanup_dir
 from .capcut_exporter import export_to_capcut_draft
@@ -253,24 +252,15 @@ class VideoAssembler:
 
             stitch_clips_cut(chunk_mp4s, merged_raw_video, work_story_dir)
 
-        # 8. Build Natural Foley & Soundtrack Mix
-        mix_wav_path = work_story_dir / "natural_soundtrack.wav"
-        build_natural_soundtrack(
-            voice_wav_path=voice_wav_path,
-            output_mix_path=mix_wav_path,
-            scenes_plan=scenes_plan,
-            foley_master_gain=0.35
-        )
-
-        # 9. Final Burn-in & Muxing (Clean Video + Natural Soundtrack + Subtitles)
-        # Note: NO TEXT BADGES (completely clean visuals as requested)
-        logger.info(f"Final compositing: muxing clean video, subtitles & natural Foley into '{final_mp4.name}'...")
+        # 8. Final Burn-in & Muxing (Clean Video + Pure Voiceover Audio + Subtitles)
+        # Note: Zero SFX / completely clean narration only
+        logger.info(f"Final compositing: muxing clean video, subtitles & pure voiceover into '{final_mp4.name}'...")
         escaped_sub = escape_ffmpeg_path(ass_sub_path)
 
         cmd_final = [
             "ffmpeg", "-y", "-loglevel", "error",
             "-i", str(merged_raw_video),
-            "-i", str(mix_wav_path),
+            "-i", str(voice_wav_path),
             "-filter_complex", f"[0:v]ass='{escaped_sub}'[v_out]",
             "-map", "[v_out]",
             "-map", "1:a",

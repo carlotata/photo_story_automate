@@ -109,26 +109,53 @@ def master_voice_audio(audio: np.ndarray, sample_rate: int = 24000) -> np.ndarra
 
 def clean_script_text(raw_text: str) -> List[str]:
     """Splits raw text into natural narration lines, stripping comments and stage cues.
-    Directly supports instructional Frame_XXX = "..." syntax (1 line = 1 frame).
+    Supports:
+    1. Instructional Frame_XXX = "..." syntax.
+    2. Full Episode specs with per-frame NARRATION: "..." lines.
+    3. Full Episode specs with a VOICEOVER: block.
+    4. Standard 1 line = 1 frame text.
     """
     cleaned_lines = []
     lines = raw_text.strip().splitlines()
 
-    # Check if script uses the instructional Frame_XXX = "..." format
-    has_frame_assignments = any(re.search(r"^\s*[-*•]?\s*Frame[-_]?\d+\s*=", l, re.I) for l in lines)
+    # 1. Check for NARRATION: "..." lines in full episode specs
+    narration_matches = re.findall(r'NARRATION:\s*["“](.*?)["”]', raw_text, re.IGNORECASE)
+    if narration_matches:
+        for text in narration_matches:
+            text = re.sub(r"\[.*?\]", "", text)
+            text = re.sub(r"\(.*?\)", "", text)
+            text = normalize_tts_text(text).strip()
+            if text:
+                cleaned_lines.append(text)
+        if cleaned_lines:
+            return cleaned_lines
 
+    # 2. Check for explicit VOICEOVER: block in spec
+    vo_match = re.search(r'VOICEOVER:\s*([\s\S]*?)(?=\n\s*(?:SETUP NOTE:|\+---|[A-Z0-9_]{3,}:)|\Z)', raw_text, re.IGNORECASE)
+    if vo_match and len(vo_match.group(1).strip().split()) > 10:
+        vo_body = vo_match.group(1).strip()
+        # Split into sentences or lines
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', vo_body) if s.strip()]
+        for s in sentences:
+            s = re.sub(r"\[.*?\]", "", s)
+            s = re.sub(r"\(.*?\)", "", s)
+            s = normalize_tts_text(s).strip()
+            if s:
+                cleaned_lines.append(s)
+        if cleaned_lines:
+            return cleaned_lines
+
+    # 3. Check if script uses the instructional Frame_XXX = "..." format
+    has_frame_assignments = any(re.search(r"^\s*[-*•]?\s*Frame[-_]?\d+\s*=", l, re.I) for l in lines)
     if has_frame_assignments:
         for line in lines:
             line = line.strip()
-            # Match Frame_001 = "Narration text" or - Frame_001 = "Narration text"
             m = re.search(r"^\s*[-*•]?\s*Frame[-_]?\d+\s*=\s*[\"'](.*?)[\"']", line, re.I)
             if m:
                 text = m.group(1).strip()
-                # Strip bracketed cues inside quotes
                 text = re.sub(r"\[.*?\]", "", text)
                 text = re.sub(r"\(.*?\)", "", text)
-                text = normalize_tts_text(text)
-                text = text.strip()
+                text = normalize_tts_text(text).strip()
                 if text:
                     cleaned_lines.append(text)
         return cleaned_lines

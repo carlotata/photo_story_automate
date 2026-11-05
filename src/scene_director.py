@@ -62,61 +62,8 @@ def direct_story(
             motion = "zoom_in"
 
         # 2. Determine Transition to the NEXT frame
-        # For animated 2D rage-comic explainer videos, all scene edits are clean,
-        # instantaneous hard cuts locked to the acoustic sentence boundaries.
         next_transition = "cut"
         trans_duration = 0.0
-
-        # 3. Detect Diegetic Foley Sound Cues from the script narrative
-        foley_cues = []
-        l_lower = line.lower()
-
-        # Specific diegetic narrative sound triggers
-        if "buzzing alarm" in l_lower or "alarm clock" in l_lower:
-            foley_cues.append({"name": "buzzing_alarm", "offset": 0.3, "gain": 0.38})
-        elif "mechanical bell" in l_lower or "bell strikes" in l_lower:
-            foley_cues.append({"name": "alarm_bell", "offset": 0.8, "gain": 0.40})
-        elif "digital bank account" in l_lower or "currency appears" in l_lower:
-            foley_cues.append({"name": "notification_ping", "offset": 1.0, "gain": 0.35})
-        elif "marked pebbles" in l_lower or "gambling with" in l_lower:
-            foley_cues.append({"name": "pebble_clatter", "offset": 0.6, "gain": 0.40})
-        elif "open hearth" in l_lower or "telling stories around" in l_lower or "hearth embers" in l_lower:
-            foley_cues.append({"name": "campfire", "offset": 0.2, "gain": 0.35})
-        elif "broken spear" in l_lower or "spear tip" in l_lower or "bronze spears" in l_lower:
-            foley_cues.append({"name": "spear_snap", "offset": 0.6, "gain": 0.38})
-        elif "rot in the rain" in l_lower or "rain" in l_lower or "drip" in l_lower or "melts" in l_lower:
-            foley_cues.append({"name": "water_drip", "offset": 0.8, "gain": 0.40})
-        elif "reed styluses" in l_lower or "invent writing" in l_lower or "cuneiform" in l_lower:
-            foley_cues.append({"name": "screen_tap", "offset": 0.5, "gain": 0.35})
-        elif "sour beer" in l_lower or "beer issued" in l_lower:
-            foley_cues.append({"name": "pebble_clatter", "offset": 0.4, "gain": 0.32})
-        elif "workload explodes" in l_lower or "surplus demands" in l_lower:
-            foley_cues.append({"name": "cinematic_thump", "offset": 0.3, "gain": 0.42})
-        elif "vault door" in l_lower or "unlatched vault" in l_lower:
-            foley_cues.append({"name": "vault_latch", "offset": 0.8, "gain": 0.55})
-        elif "breeze pushes open the front door" in l_lower or "front door" in l_lower:
-            foley_cues.append({"name": "door_creak", "offset": 0.5, "gain": 0.42})
-            foley_cues.append({"name": "wind_breeze", "offset": 1.2, "gain": 0.28})
-        elif "digital alarm does not chime" in l_lower or "electrical grid died" in l_lower:
-            foley_cues.append({"name": "power_down", "offset": 0.6, "gain": 0.38})
-        elif "slab of glass" in l_lower or "phone" in l_lower:
-            foley_cues.append({"name": "screen_tap", "offset": 1.0, "gain": 0.30})
-        elif "front yard in your socks" in l_lower or "wet morning soil" in l_lower:
-            foley_cues.append({"name": "grass_squish", "offset": 1.4, "gain": 0.45})
-            foley_cues.append({"name": "cinematic_thump", "offset": 3.2, "gain": 0.40})
-        elif "street sits entirely silent" in l_lower or "outside the bedroom window" in l_lower:
-            foley_cues.append({"name": "wind_breeze", "offset": 0.4, "gain": 0.25})
-        elif "air conditioning unit" in l_lower:
-            foley_cues.append({"name": "metal_ping", "offset": 1.2, "gain": 0.28})
-        elif "bank server" in l_lower:
-            foley_cues.append({"name": "server_winddown", "offset": 0.8, "gain": 0.32})
-        elif "lawnmower sits abandoned" in l_lower or "kentucky bluegrass" in l_lower or "savannah" in l_lower:
-            foley_cues.append({"name": "wind_breeze", "offset": 0.6, "gain": 0.22})
-        elif "does not exist" in l_lower or "tuesday does not" in l_lower or "toxic mushrooms" in l_lower:
-            foley_cues.append({"name": "cinematic_thump", "offset": 0.6, "gain": 0.42})
-        elif idx == 0:
-            # Opening scene hook: gentle room dawn tone & soft subtle opening hit
-            foley_cues.append({"name": "cinematic_thump", "offset": 0.0, "gain": 0.45})
 
         scene_dict = {
             "index": idx,
@@ -125,8 +72,7 @@ def direct_story(
             "start_time": accum_time,
             "motion": motion,
             "next_transition": next_transition,
-            "transition_duration": trans_duration,
-            "foley_cues": foley_cues
+            "transition_duration": trans_duration
         }
         scenes_plan.append(scene_dict)
         accum_time += dur
@@ -134,7 +80,6 @@ def direct_story(
     logger.info(
         f"Directed {num_scenes} scenes: "
         f"{sum(1 for s in scenes_plan if s['next_transition'] == 'cut')} hard cuts, "
-        f"{sum(1 for s in scenes_plan if s['next_transition'] == 'dissolve')} dissolves, "
-        f"{sum(len(s['foley_cues']) for s in scenes_plan)} diegetic Foley sound cues."
+        f"{sum(1 for s in scenes_plan if s['next_transition'] == 'dissolve')} dissolves."
     )
     return scenes_plan

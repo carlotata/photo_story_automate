@@ -186,6 +186,19 @@ def main():
                 found = cand
                 break
         
+        # Fuzzy match across discovered stories if exact path wasn't found
+        if not found:
+            def norm_key(text: str) -> str:
+                import re
+                return re.sub(r'[^a-z0-9]', '', text.lower())
+            
+            target_key = norm_key(args.story)
+            for s in all_stories:
+                s_key = norm_key(s.name)
+                if target_key == s_key or target_key in s_key or s_key in target_key:
+                    found = s
+                    break
+
         if found:
             target_stories.append(found)
         else:
