@@ -3,6 +3,7 @@
 import re
 import os
 import shutil
+import zipfile
 import logging
 from pathlib import Path
 from typing import List, Tuple, Optional
@@ -10,6 +11,43 @@ from typing import List, Tuple, Optional
 logger = logging.getLogger("photo_story_narrator.utils")
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+
+def auto_extract_zips(directory: Path):
+    """Detects .zip archives in directory, automatically unpacks them into story folders,
+    and removes the archive once unpacked."""
+    directory = Path(directory)
+    if not directory.exists() or not directory.is_dir():
+        return
+
+    for zip_path in list(directory.glob("*.zip")):
+        try:
+            logger.info(f"Detected archive: {zip_path.name}. Auto-extracting...")
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                # Check whether zip has a single root folder or flat files
+                namelist = [p for p in zf.namelist() if p.strip()]
+                top_levels = {p.split('/')[0].split('\\')[0] for p in namelist}
+                
+                # If zip contains a single top-level folder, extract directly to directory
+                if len(top_levels) == 1 and not any(f.lower().endswith(tuple(SUPPORTED_EXTENSIONS)) for f in top_levels):
+                    extract_target = directory
+                else:
+                    # Check if there is an existing folder matching this episode prefix
+                    matching_dirs = [d for d in directory.iterdir() if d.is_dir() and d.name.lower().startswith(zip_path.stem.lower())]
+                    if matching_dirs:
+                        extract_target = matching_dirs[0]
+                    else:
+                        extract_target = directory / zip_path.stem
+
+                extract_target.mkdir(parents=True, exist_ok=True)
+                zf.extractall(extract_target)
+                logger.info(f"Successfully unpacked {zip_path.name} to {extract_target}")
+
+            try:
+                zip_path.unlink()
+            except Exception as e:
+                logger.warning(f"Could not remove {zip_path} after extraction: {e}")
+        except Exception as e:
+            logger.error(f"Failed to auto-extract {zip_path}: {e}")
 
 def natural_sort_key(s: str):
     """Sort strings containing numbers in human order (e.g., img2 before img10)."""
@@ -25,6 +63,13 @@ def discover_stories(input_root: Path, category: Optional[str] = None) -> List[P
     input_root = Path(input_root)
     if not input_root.exists():
         return []
+
+    # Auto-extract any zip files in input_root and subdirectories
+    auto_extract_zips(input_root)
+    if (input_root / "shorts").exists():
+        auto_extract_zips(input_root / "shorts")
+    if (input_root / "long").exists():
+        auto_extract_zips(input_root / "long")
 
     stories = []
 
@@ -72,9 +117,9 @@ def discover_stories(input_root: Path, category: Optional[str] = None) -> List[P
     return unique_stories
 
 def frame_sort_key(p: Path):
-    """Sorts images by explicit frame index (e.g. S1-FRAME-1, Frame_046, Frame_103),
+    """Sorts images by explicit frame index (e.g. S1-FRAME-1, Frame_046, E02_F001, Frame_103),
     falling back to natural sorting of filename."""
-    m = re.search(r'(?:frame[-_]|frame_)(\d+)', p.name, re.I)
+    m = re.search(r'(?:e\d+[-_])?(?:frame[-_]|frame_|f)(\d+)', p.name, re.I)
     if m:
         return (0, int(m.group(1)), natural_sort_key(p.name))
     return (1, 0, natural_sort_key(p.name))

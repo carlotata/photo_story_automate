@@ -154,7 +154,8 @@ class VideoAssembler:
         self.sub_gen.generate_ass(acoustic_words, tts_meta.get("segments", []), ass_sub_path)
 
         # 6. Scene direction based on exact acoustic per-sentence durations
-        scenes_plan = direct_story(story_dir, script_lines, raw_durations)
+        frame_lines = [f.get("line", "") for f in aligned_frames]
+        scenes_plan = direct_story(story_dir, frame_lines, raw_durations)
 
         # Sync scenes_plan start_time and duration with exact acoustic speech bounds
         for i, sc in enumerate(scenes_plan):

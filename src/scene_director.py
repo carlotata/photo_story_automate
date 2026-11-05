@@ -40,11 +40,13 @@ def direct_story(
         except Exception as e:
             logger.warning(f"Error reading director.json: {e}")
 
-    num_scenes = len(script_lines)
+    num_scenes = len(durations)
     scenes_plan = []
     accum_time = 0.0
 
-    for idx, (line, dur) in enumerate(zip(script_lines, durations)):
+    for idx in range(num_scenes):
+        dur = durations[idx]
+        line = script_lines[idx] if idx < len(script_lines) else (script_lines[-1] if script_lines else "")
         # 1. Determine Ken Burns Camera Movement based on subject matter & shot intent
         has_object = bool(OBJECT_KEYWORDS.search(line))
         has_env = bool(ENVIRONMENT_KEYWORDS.search(line))
