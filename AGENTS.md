@@ -106,7 +106,9 @@ Whenever a user triggers a command (`/photoshorts`, `/photolong`, `/shorts`, `/l
    - Validate parity: $\text{count}(\text{images}) == \text{count}(\text{lines})$.
    - Confirm aspect ratio / resolution orientation.
    - Flag any missing, misnumbered, or duplicate frames immediately.
-6. **Execution Readiness**: Confirm status to user and proceed to render or stand ready for the render command.
+6. **Full Auto-Execution (No User Approval Needed)**:
+   - Immediately launch the pipeline render command (`python run.py /<category> "<Episode Title>"`) without waiting or asking the user for confirmation.
+   - Proceed start to finish autonomously.
 
 ### C. What the Engine Automatically Strips (NEVER SPOKEN):
 - The `Frame_XXX = ` or `- Frame_XXX = ` prefix.
