@@ -161,7 +161,11 @@ class TransitionConfig:
 class StoryConfig:
     input_dir: Path = PROJECT_ROOT / "input"
     input_shorts_dir: Path = PROJECT_ROOT / "input" / "shorts"
+    input_shorts_pending: Path = PROJECT_ROOT / "input" / "shorts" / "pending"
+    input_shorts_completed: Path = PROJECT_ROOT / "input" / "shorts" / "completed"
     input_long_dir: Path = PROJECT_ROOT / "input" / "long"
+    input_long_pending: Path = PROJECT_ROOT / "input" / "long" / "pending"
+    input_long_completed: Path = PROJECT_ROOT / "input" / "long" / "completed"
     output_dir: Path = PROJECT_ROOT / "output"
     output_shorts_dir: Path = PROJECT_ROOT / "output" / "shorts"
     output_long_dir: Path = PROJECT_ROOT / "output" / "long"

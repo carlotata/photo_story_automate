@@ -163,7 +163,11 @@ def main():
 
     # Ensure categorized folder structure exists
     cfg.input_shorts_dir.mkdir(parents=True, exist_ok=True)
+    cfg.input_shorts_pending.mkdir(parents=True, exist_ok=True)
+    cfg.input_shorts_completed.mkdir(parents=True, exist_ok=True)
     cfg.input_long_dir.mkdir(parents=True, exist_ok=True)
+    cfg.input_long_pending.mkdir(parents=True, exist_ok=True)
+    cfg.input_long_completed.mkdir(parents=True, exist_ok=True)
     cfg.output_shorts_dir.mkdir(parents=True, exist_ok=True)
     cfg.output_long_dir.mkdir(parents=True, exist_ok=True)
 
@@ -173,10 +177,14 @@ def main():
     target_stories = []
 
     if args.story:
-        # Check explicit story name across categorized paths
+        # Check explicit story name across categorized paths (including pending/ and completed/)
         candidates = [
+            cfg.input_shorts_pending / args.story,
             cfg.input_shorts_dir / args.story,
+            cfg.input_shorts_completed / args.story,
+            cfg.input_long_pending / args.story,
             cfg.input_long_dir / args.story,
+            cfg.input_long_completed / args.story,
             cfg.input_dir / args.story,
             Path(args.story)
         ]

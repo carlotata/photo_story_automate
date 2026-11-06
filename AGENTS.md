@@ -29,9 +29,13 @@ The studio automatically separates **Short Form** and **Long Form** content:
 photo_story_narrator/
 ├── input/
 │   ├── shorts/                      # 📱 SHORT FORM CONTENT (9:16 vertical, <= 59.0s max)
-│   │   └── <Story Title>/           # Frame images & script.txt
+│   │   ├── pending/                 # Unrendered stories awaiting production
+│   │   ├── completed/               # Processed / archived story assets
+│   │   └── <Story Title>/           # Active / root story frames & script.txt
 │   └── long/                        # 🎬 LONG FORM CONTENT (16:9 widescreen 2K)
-│       └── <Story Title>/           # Frame images & script.txt
+│       ├── pending/                 # Unrendered stories awaiting production
+│       ├── completed/               # Processed / archived story assets
+│       └── <Story Title>/           # Active / root story frames & script.txt
 ├── output/
 │   ├── shorts/
 │   │   └── <Story Title>/

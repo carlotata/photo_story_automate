@@ -59,52 +59,68 @@ def sanitize_title(title: str) -> str:
     return cleaned if cleaned else "Untitled_Story"
 
 def discover_stories(input_root: Path, category: Optional[str] = None) -> List[Path]:
-    """Finds all story subdirectories inside input/ (including categorized subfolders input/shorts and input/long)."""
+    """Finds all story subdirectories inside input/ (including categorized subfolders input/shorts and input/long,
+    as well as pending/ and completed/ subfolders)."""
     input_root = Path(input_root)
     if not input_root.exists():
         return []
 
     # Auto-extract any zip files in input_root and subdirectories
-    auto_extract_zips(input_root)
-    if (input_root / "shorts").exists():
-        auto_extract_zips(input_root / "shorts")
-    if (input_root / "long").exists():
-        auto_extract_zips(input_root / "long")
+    for d in [
+        input_root,
+        input_root / "shorts",
+        input_root / "shorts" / "pending",
+        input_root / "shorts" / "completed",
+        input_root / "long",
+        input_root / "long" / "pending",
+        input_root / "long" / "completed",
+    ]:
+        if d.exists():
+            auto_extract_zips(d)
+
+    def scan_container(container_dir: Path) -> List[Path]:
+        found = []
+        if not container_dir.exists() or not container_dir.is_dir():
+            return found
+        for item in sorted(container_dir.iterdir()):
+            if not item.is_dir() or item.name.startswith("."):
+                continue
+            # If item is a workflow container like 'pending' or 'completed', inspect child story folders
+            if item.name.lower() in ("pending", "completed"):
+                for sub_item in sorted(item.iterdir()):
+                    if sub_item.is_dir() and not sub_item.name.startswith("."):
+                        if discover_images(sub_item):
+                            found.append(sub_item)
+            else:
+                # Direct story folder
+                if discover_images(item):
+                    found.append(item)
+        return found
 
     stories = []
 
     # Category filter
     if category in ("shorts", "short"):
         shorts_dir = input_root / "shorts" if input_root.name.lower() != "shorts" else input_root
-        if shorts_dir.exists():
-            for item in sorted(shorts_dir.iterdir()):
-                if item.is_dir() and not item.name.startswith("."):
-                    if discover_images(item):
-                        stories.append(item)
-        return stories
+        return scan_container(shorts_dir)
 
     if category in ("long", "longs"):
         long_dir = input_root / "long" if input_root.name.lower() != "long" else input_root
-        if long_dir.exists():
-            for item in sorted(long_dir.iterdir()):
-                if item.is_dir() and not item.name.startswith("."):
-                    if discover_images(item):
-                        stories.append(item)
-        return stories
+        return scan_container(long_dir)
 
     # If no category specified, check categorized folders first:
     for cat_name in ["shorts", "long"]:
         cat_dir = input_root / cat_name
-        if cat_dir.exists() and cat_dir.is_dir():
-            for item in sorted(cat_dir.iterdir()):
-                if item.is_dir() and not item.name.startswith("."):
-                    if discover_images(item):
-                        stories.append(item)
+        stories.extend(scan_container(cat_dir))
 
     # Then check any top-level story folders in input_root (excluding 'shorts' & 'long')
     for item in sorted(input_root.iterdir()):
         if item.is_dir() and not item.name.startswith(".") and item.name.lower() not in ("shorts", "short", "long", "longs"):
-            if discover_images(item):
+            if item.name.lower() in ("pending", "completed"):
+                for sub_item in sorted(item.iterdir()):
+                    if sub_item.is_dir() and not sub_item.name.startswith(".") and discover_images(sub_item):
+                        stories.append(sub_item)
+            elif discover_images(item):
                 stories.append(item)
 
     # Return unique paths preserving discovery order
