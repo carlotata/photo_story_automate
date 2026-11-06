@@ -34,7 +34,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.config import StoryConfig, VideoConfig, VoiceConfig, SubtitleConfig, KenBurnsConfig, TransitionConfig
 from src.video_assembler import VideoAssembler
-from src.utils import discover_stories
+from src.utils import discover_stories, get_story_status
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +84,7 @@ def parse_args():
     parser.add_argument("--workers", "-w", type=int, default=4,
                         help="Number of parallel render workers for Ken Burns clips (default: 4).")
     parser.add_argument("--no-capcut", action="store_true", help="Disable automatic CapCut draft project export.")
+    parser.add_argument("--pending", action="store_true", help="Render all pending (unrendered) stories.")
     parser.add_argument("--all", action="store_true", help="Render all story folders found inside target category.")
     
     parsed = parser.parse_args(filtered_args)
@@ -212,6 +213,11 @@ def main():
         else:
             logger.error(f"Story folder not found: '{args.story}' in input/shorts/ or input/long/")
             sys.exit(1)
+    elif args.pending:
+        target_stories = [s for s in all_stories if get_story_status(s, cfg.output_dir) == "pending"]
+        if not target_stories:
+            print("\n✨ All stories are already completed! Zero pending stories found.\n")
+            sys.exit(0)
     elif args.all:
         target_stories = all_stories
     elif len(all_stories) == 1:
@@ -223,22 +229,42 @@ def main():
         other_list = [s for s in all_stories if s not in shorts_list and s not in long_list]
 
         if shorts_list:
+            s_pending = [s for s in shorts_list if get_story_status(s, cfg.output_dir) == "pending"]
+            s_completed = [s for s in shorts_list if get_story_status(s, cfg.output_dir) == "completed"]
             print("\n  📱 SHORT FORM (input/shorts/):")
-            for i, s in enumerate(shorts_list, 1):
-                print(f"     {i}. {s.name}")
+            if s_pending:
+                print("     ⏳ PENDING (Awaiting Render):")
+                for i, s in enumerate(s_pending, 1):
+                    print(f"        {i}. {s.name}")
+            if s_completed:
+                print("     ✅ COMPLETED (Already Rendered):")
+                for i, s in enumerate(s_completed, 1):
+                    print(f"        {i}. {s.name}")
+
         if long_list:
+            l_pending = [s for s in long_list if get_story_status(s, cfg.output_dir) == "pending"]
+            l_completed = [s for s in long_list if get_story_status(s, cfg.output_dir) == "completed"]
             print("\n  🎬 LONG FORM (input/long/):")
-            for i, s in enumerate(long_list, 1):
-                print(f"     {i}. {s.name}")
+            if l_pending:
+                print("     ⏳ PENDING (Awaiting Render):")
+                for i, s in enumerate(l_pending, 1):
+                    print(f"        {i}. {s.name}")
+            if l_completed:
+                print("     ✅ COMPLETED (Already Rendered):")
+                for i, s in enumerate(l_completed, 1):
+                    print(f"        {i}. {s.name}")
+
         if other_list:
             print("\n  📁 UNCATEGORIZED (input/):")
             for i, s in enumerate(other_list, 1):
-                print(f"     {i}. {s.name}")
+                st = get_story_status(s, cfg.output_dir).upper()
+                print(f"     {i}. [{st}] {s.name}")
 
         print("\nSpecify story to render:")
-        print("   Shorts: python run.py /photoshorts \"StoryName\"  or  /photoshorts")
-        print("   Long:   python run.py /photolong \"StoryName\"    or  /photolong")
-        print("   All:    python run.py --all\n")
+        print("   Shorts:  python run.py /shorts \"StoryName\"")
+        print("   Long:    python run.py /long \"StoryName\"")
+        print("   Pending: python run.py --pending")
+        print("   All:     python run.py --all\n")
         sys.exit(0)
     else:
         print("\n[!] No story folders found in 'input/shorts/' or 'input/long/'.")

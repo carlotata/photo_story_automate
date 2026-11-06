@@ -9,11 +9,21 @@ work/
 
 # User story inputs (exclude heavy media; keep sample template & instructions)
 input/shorts/*
-!input/shorts/sample_story/
-!input/shorts/sample_story/*
+!input/shorts/pending/
+input/shorts/pending/*
+!input/shorts/pending/sample_story/
+!input/shorts/pending/sample_story/*
+!input/shorts/completed/
+input/shorts/completed/*
+
 input/long/*
-!input/long/sample_story/
-!input/long/sample_story/*
+!input/long/pending/
+input/long/pending/*
+!input/long/pending/sample_story/
+!input/long/pending/sample_story/*
+!input/long/completed/
+input/long/completed/*
+
 !input/README.md
 
 # TTS Models (downloaded automatically via setup_model.py)

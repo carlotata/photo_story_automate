@@ -10,7 +10,94 @@ from typing import List, Tuple, Optional
 
 logger = logging.getLogger("photo_story_narrator.utils")
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+
+def sanitize_title(title: str) -> str:
+    """Removes invalid filename characters from story title."""
+    cleaned = re.sub(r'[\\/*?:"<>|]', "", title).strip()
+    return cleaned if cleaned else "Untitled_Story"
+
+def get_story_status(story_dir: Path, output_root: Optional[Path] = None) -> str:
+    """Identifies whether a story is 'completed' or 'pending'.
+    A story is 'completed' if:
+      1. It is inside a 'completed' folder, OR
+      2. Its final rendered .mp4 exists in output/<shorts|long>/<StoryTitle>/
+    Otherwise, it is 'pending'.
+    """
+    story_dir = Path(story_dir)
+    if "completed" in [p.lower() for p in story_dir.parts]:
+        return "completed"
+
+    if output_root is None:
+        output_root = PROJECT_ROOT / "output"
+
+    parts_lower = [p.lower() for p in story_dir.parts]
+    cat = "shorts" if ("shorts" in parts_lower or "short" in parts_lower) else "long"
+    clean_title = sanitize_title(story_dir.name)
+    out_dir = output_root / cat / clean_title
+    if out_dir.exists():
+        mp4s = [p for p in out_dir.glob("*.mp4") if p.stat().st_size > 1000]
+        if mp4s:
+            return "completed"
+
+    return "pending"
+
+def move_story_to_completed(story_dir: Path, completed_dir: Path) -> Path:
+    """Moves a finished story folder into completed/ without data loss."""
+    story_dir = Path(story_dir)
+    completed_dir = Path(completed_dir)
+    completed_dir.mkdir(parents=True, exist_ok=True)
+    dest = completed_dir / story_dir.name
+    if story_dir.resolve() == dest.resolve():
+        return dest
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.move(str(story_dir), str(dest))
+    return dest
+
+def auto_organize_story_folders(input_root: Path, output_root: Optional[Path] = None):
+    """Automatically identifies story completion and organizes input folders:
+    - Moves completed stories (with rendered .mp4 in output) into completed/
+    - Moves unrendered stories sitting in category root into pending/
+    """
+    input_root = Path(input_root)
+    if output_root is None:
+        output_root = PROJECT_ROOT / "output"
+    if not input_root.exists():
+        return
+
+    for cat in ["shorts", "long"]:
+        cat_dir = input_root / cat
+        if not cat_dir.exists():
+            continue
+        pending_dir = cat_dir / "pending"
+        completed_dir = cat_dir / "completed"
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        completed_dir.mkdir(parents=True, exist_ok=True)
+
+        for item in list(cat_dir.iterdir()):
+            if not item.is_dir() or item.name.startswith("."):
+                continue
+            if item.name.lower() in ("pending", "completed"):
+                # Check if any story inside pending is actually completed
+                if item.name.lower() == "pending":
+                    for p_item in list(item.iterdir()):
+                        if p_item.is_dir() and not p_item.name.startswith("."):
+                            if get_story_status(p_item, output_root) == "completed":
+                                move_story_to_completed(p_item, completed_dir)
+                continue
+
+            # Story is sitting in category root
+            status = get_story_status(item, output_root)
+            if status == "completed":
+                move_story_to_completed(item, completed_dir)
+            else:
+                dest = pending_dir / item.name
+                if dest != item:
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.move(str(item), str(dest))
 
 def auto_extract_zips(directory: Path):
     """Detects .zip archives in directory, automatically unpacks them into story folders,
@@ -53,17 +140,15 @@ def natural_sort_key(s: str):
     """Sort strings containing numbers in human order (e.g., img2 before img10)."""
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", str(s))]
 
-def sanitize_title(title: str) -> str:
-    """Removes invalid filename characters from story title."""
-    cleaned = re.sub(r'[\\/*?:"<>|]', "", title).strip()
-    return cleaned if cleaned else "Untitled_Story"
-
 def discover_stories(input_root: Path, category: Optional[str] = None) -> List[Path]:
     """Finds all story subdirectories inside input/ (including categorized subfolders input/shorts and input/long,
     as well as pending/ and completed/ subfolders)."""
     input_root = Path(input_root)
     if not input_root.exists():
         return []
+
+    # Auto-organize input stories based on completion status
+    auto_organize_story_folders(input_root)
 
     # Auto-extract any zip files in input_root and subdirectories
     for d in [

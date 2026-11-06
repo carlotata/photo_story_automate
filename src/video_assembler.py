@@ -288,5 +288,16 @@ class VideoAssembler:
         # 11. Clean up work directory completely to keep output clean
         cleanup_dir(work_story_dir)
 
+        # 12. Automatically transition story asset from pending/ to completed/
+        try:
+            completed_dir = getattr(self.cfg, "input_shorts_completed" if is_short else "input_long_completed", None)
+            if completed_dir:
+                from .utils import move_story_to_completed
+                new_loc = move_story_to_completed(story_dir, completed_dir)
+                if new_loc != story_dir:
+                    logger.info(f"Story asset automatically moved to completed: '{new_loc.name}'")
+        except Exception as e:
+            logger.warning(f"Could not auto-move story to completed: {e}")
+
         logger.info(f"SUCCESS: Output saved at '{final_mp4}'")
         return final_mp4
