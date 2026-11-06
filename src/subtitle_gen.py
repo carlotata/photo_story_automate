@@ -5,6 +5,31 @@ from typing import List, Dict, Any
 
 from .config import SubtitleConfig, VideoConfig
 
+SPEAKER_HIGHLIGHT_COLORS = {
+    "narrator": "&H0020E5FF",      # Golden Yellow
+    "default": "&H0020E5FF",
+    "girl": "&H00B570FF",          # Vibrant Rose / Soft Coral Pink
+    "female": "&H00B570FF",
+    "woman": "&H00B570FF",
+    "lady": "&H00B570FF",
+    "mom": "&H00B570FF",
+    "boy": "&H00FFAA33",           # Sky Cyan Blue
+    "male": "&H00FFAA33",
+    "man": "&H00FFAA33",
+    "guy": "&H00FFAA33",
+    "dad": "&H00FFAA33",
+    "child": "&H0080FF70",         # Fresh Mint Green
+    "kid": "&H0080FF70",
+    "young_girl": "&H00B570FF",
+    "announcement": "&H0033B0FF",  # Amber Alert Gold
+    "announcer": "&H0033B0FF",
+    "radio": "&H0033B0FF",
+    "speaker": "&H0033B0FF",
+    "system": "&H0033B0FF",
+    "pa": "&H0033B0FF",
+    "elder": "&H00E0E0E0",         # Soft Platinum Silver
+}
+
 def format_ass_time(seconds: float) -> str:
     """Formats float seconds into ASS timestamp H:MM:SS.cc"""
     h = int(seconds // 3600)
@@ -58,7 +83,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 t0 = format_ass_time(seg["start"])
                 t1 = format_ass_time(seg["end"])
                 txt = seg["text"].upper()
-                events.append(f"Dialogue: 0,{t0},{t1},Default,,0,0,0,,{txt}")
+                role = seg.get("speaker_role", "narrator")
+                color = SPEAKER_HIGHLIGHT_COLORS.get(str(role).lower(), cfg.highlight_color)
+                events.append(f"Dialogue: 0,{t0},{t1},Default,,0,0,0,,{{\\c{color}}}{txt}")
         else:
             # Word-level grouping with active highlight animation
             i = 0
@@ -69,13 +96,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 for active_idx, active_w in enumerate(group):
                     w_start = format_ass_time(active_w["start"])
                     w_end = format_ass_time(active_w["end"])
+                    active_role = active_w.get("speaker_role", "narrator")
+                    active_color = SPEAKER_HIGHLIGHT_COLORS.get(str(active_role).lower(), cfg.highlight_color)
 
                     line_parts = []
                     for g_idx, g_w in enumerate(group):
                         clean_w = g_w["word"].upper()
                         if g_idx == active_idx:
-                            # Highlighted word: Golden Yellow + slight scale pop
-                            line_parts.append(f"{{\\c{cfg.highlight_color}\\fscx106\\fscy106}}{clean_w}{{\\r}}")
+                            # Highlighted word with role color + slight scale pop
+                            line_parts.append(f"{{\\c{active_color}\\fscx106\\fscy106}}{clean_w}{{\\r}}")
                         else:
                             line_parts.append(f"{{\\c{cfg.primary_color}}}{clean_w}")
 

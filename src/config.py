@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE_ROOT = PROJECT_ROOT.parent
@@ -43,6 +43,64 @@ class VideoConfig:
     scaling_flags: str = "lanczos+accurate_rnd"
     bitrate: str = "18000k"
 
+# Semantic voice role mappings for Kokoro
+VOICE_ROLE_MAPPING: Dict[str, int] = {
+    # Default narrator
+    "narrator": 6,        # am_michael (cinematic documentary male)
+    "default": 6,
+    # Female / Girl
+    "girl": 1,            # af_bella (warm & expressive)
+    "female": 1,
+    "woman": 1,
+    "lady": 1,
+    "mom": 1,
+    "mother": 1,
+    "sister": 1,
+    "daughter": 1,
+    # Male / Boy
+    "boy": 5,             # am_adam (crisp & conversational)
+    "male": 5,
+    "man": 5,
+    "guy": 5,
+    "dad": 5,
+    "father": 5,
+    "brother": 5,
+    "son": 5,
+    # Kid / Child / Young
+    "child": 2,           # af_heart (soft & calm)
+    "kid": 3,             # af_nicole (gentle)
+    "young_girl": 3,
+    "young_boy": 5,
+    # Announcement / Radio / PA / Official
+    "announcement": 9,    # bm_george (deep & resonant British male)
+    "announcer": 9,
+    "radio": 9,
+    "intercom": 9,
+    "pa": 9,
+    "broadcast": 9,
+    "speaker": 9,
+    "system": 9,
+    "ai": 0,              # af_alloy (neutral clean synthetic)
+    "robot": 0,
+    # Elder / Mentor
+    "elder": 10,          # bm_lewis (smooth composed)
+    "wise": 10,
+    "mentor": 10,
+    "grandfather": 10,
+    # Direct Kokoro voice names
+    "af_alloy": 0,
+    "af_bella": 1,
+    "af_heart": 2,
+    "af_nicole": 3,
+    "af_sarah": 4,
+    "am_adam": 5,
+    "am_michael": 6,
+    "bf_emma": 7,
+    "bf_isabella": 8,
+    "bm_george": 9,
+    "bm_lewis": 10,
+}
+
 @dataclass
 class VoiceConfig:
     # Kokoro voice IDs:
@@ -61,6 +119,7 @@ class VoiceConfig:
     speaker_name: str = "am_michael"
     speed: float = 1.02
     model_dir: Path = field(default_factory=find_kokoro_model_dir)
+    custom_cast: Dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class SubtitleConfig:

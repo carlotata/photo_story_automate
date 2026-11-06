@@ -110,13 +110,33 @@ Whenever a user triggers a command (`/photoshorts`, `/photolong`, `/shorts`, `/l
    - Immediately launch the pipeline render command (`python run.py /<category> "<Episode Title>"`) without waiting or asking the user for confirmation.
    - Proceed start to finish autonomously.
 
-### C. What the Engine Automatically Strips (NEVER SPOKEN):
+### C. Multi-Voice & Dialogue Casting Syntax
+The narration engine natively supports multi-character dialogue across Kokoro's 11 voice profiles:
+```ini
+# Optional custom cast header:
+# CAST: Alice=girl, Bob=boy, Central=announcement
+
+Frame_001 = [Narrator] "Dr. Aris Thorne Jr. entered the laboratory."
+Frame_002 = [Girl] "Look at the core! It's reacting!"
+Frame_003 = Boy: "Step back immediately."
+Frame_004 = [Announcement] "Containment breach detected."
+Frame_005 = [Narrator] "He turned around and whispered:" [Girl] "Don't move."
+```
+- **Supported Role Tags**: `[Narrator]`, `[Girl]`, `[Boy]`, `[Child]`, `[Announcement]`, `[Radio]`, `[Elder]`, `[System]`, or colon prefix (`Girl: "..."`).
+- **Intra-frame Switching**: Multiple speakers within a single frame are synthesized sequentially, joined with natural micro-pauses (`0.12s`), and aligned to that frame.
+- **Dynamic Subtitle Coloring**: Words automatically adopt active character colors (Yellow for Narrator, Coral Rose for Girl, Sky Cyan for Boy, Amber Alert for Announcement).
+
+### D. Title & Honorific Expansion (Pause Elimination):
+- Words with periods like `Dr.`, `Sr.`, `Jr.`, `Mr.`, `Mrs.`, `Prof.`, etc. are automatically normalized to their full phonetic words (`Doctor`, `Senior`, `Junior`, `Mister`, `Missus`, `Professor`) before phonemization, completely eliminating awkward acoustic pauses or accidental regex sentence breaks.
+
+### E. What the Engine Automatically Strips (NEVER SPOKEN):
 - The `Frame_XXX = ` or `- Frame_XXX = ` prefix.
+- All speaker tags (`[Girl]`, `Boy:`, `[Announcement]`, etc.).
 - All comments (`#`, `//`).
 - All segment headers (`SEGMENT 1: ...`).
-- Only the clean text inside quotes or `VOICEOVER:` is passed to Kokoro TTS.
+- Only the clean spoken dialogue/narration is passed to Kokoro TTS and Faster-Whisper.
 
-### D. Parity Invariant:
+### F. Parity Invariant:
 - Total discovered frame images **MUST** equal total script lines:
   $$\text{count}(\text{images}) = \text{count}(\text{lines})$$
 - Frame sorting uses numerical natural sorting (`Frame_001`, `Frame_002` ... `Frame_420`).

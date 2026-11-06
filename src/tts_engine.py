@@ -6,10 +6,10 @@ import wave
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
 
-from .config import VoiceConfig
+from .config import VoiceConfig, VOICE_ROLE_MAPPING
 
 logger = logging.getLogger("photo_story_narrator.tts")
 
@@ -24,6 +24,124 @@ ORDINALS = {
     '15th': 'fifteenth', '16th': 'sixteenth', '17th': 'seventeenth', '18th': 'eighteenth',
     '19th': 'nineteenth', '20th': 'twentieth', '21st': 'twenty-first'
 }
+
+ABBREVIATIONS = [
+    (r'\bDr\.\s*', 'Doctor '),
+    (r'\bMr\.\s*', 'Mister '),
+    (r'\bMrs\.\s*', 'Missus '),
+    (r'\bMs\.\s*', 'Ms '),
+    (r'\bProf\.\s*', 'Professor '),
+    (r'\bCapt\.\s*', 'Captain '),
+    (r'\bGen\.\s*', 'General '),
+    (r'\bCol\.\s*', 'Colonel '),
+    (r'\bLt\.\s*', 'Lieutenant '),
+    (r'\bSgt\.\s*', 'Sergeant '),
+    (r'\bRev\.\s*', 'Reverend '),
+    (r'\bSt\.\s+(?=[A-Z])', 'Saint '),
+    (r'\bvs\.\s*', 'versus '),
+    (r'\betc\.\s*', 'etcetera '),
+    (r'\be\.g\.,?\s*', 'for example '),
+    (r'\bi\.e\.,?\s*', 'that is '),
+    (r'\bNo\.\s*(\d+)', r'number \1'),
+    (r'\b(Jr|Sr)\.\s*(?=[A-Za-z0-9])', lambda m: ('Senior ' if m.group(1).lower() == 'sr' else 'Junior ')),
+    (r'\b(Jr|Sr)\.\s*([,;])\s*', lambda m: ('Senior' if m.group(1).lower() == 'sr' else 'Junior') + m.group(2) + ' '),
+    (r'\b(Jr|Sr)\.\s*(\.|\Z)', lambda m: ('Senior.' if m.group(1).lower() == 'sr' else 'Junior.')),
+]
+
+def expand_titles_and_abbreviations(text: str) -> str:
+    """Expands titles and abbreviations (Dr., Sr., Jr., Mr., etc.) so Kokoro doesn't treat
+    them as sentence terminators or add awkward acoustic silences."""
+    for pat, repl in ABBREVIATIONS:
+        if callable(repl):
+            text = re.sub(pat, repl, text, flags=re.IGNORECASE)
+        else:
+            text = re.sub(pat, repl, text, flags=re.IGNORECASE)
+    return text
+
+def parse_cast_header(raw_text: str) -> Dict[str, str]:
+    """Parses optional '# CAST: Alice=af_bella, Bob=am_adam' header from scripts."""
+    cast = {}
+    for line in raw_text.splitlines():
+        line = line.strip()
+        m = re.match(r'^\s*#\s*(?:CAST|VOICES?)\s*:\s*(.*)', line, re.I)
+        if m:
+            entries = m.group(1).split(',')
+            for entry in entries:
+                if '=' in entry:
+                    name, voice = entry.split('=', 1)
+                    cast[name.strip().lower()] = voice.strip().lower()
+    return cast
+
+def resolve_speaker(role_or_id: Any, custom_cast: Optional[Dict[str, str]] = None, default_id: int = 6) -> Tuple[int, str]:
+    """Resolves role names, character names, or voice IDs to Kokoro (speaker_id, speaker_role)."""
+    if role_or_id is None:
+        return default_id, 'narrator'
+    r = str(role_or_id).strip().lower()
+    if custom_cast and r in custom_cast:
+        return resolve_speaker(custom_cast[r], custom_cast=None, default_id=default_id)
+    if r.isdigit():
+        return int(r), 'custom'
+    if r in VOICE_ROLE_MAPPING:
+        return VOICE_ROLE_MAPPING[r], r
+    return default_id, 'narrator'
+
+def parse_line_speaker_chunks(
+    raw_line: str,
+    custom_cast: Optional[Dict[str, str]] = None,
+    default_id: int = 6
+) -> List[Dict[str, Any]]:
+    """Splits a single frame line into speaker chunks, supporting:
+    1. Bracketed tags: [Girl] "Help!" or [Narrator] "He turned." [Girl] "Run!"
+    2. Colon prefixes: Girl: "Wait for me!"
+    3. Standard text: defaults to primary narrator voice.
+    """
+    line = raw_line.strip()
+    
+    # 1. Bracketed tags anywhere in line: e.g. [Narrator] text [Girl] dialogue
+    tokens = re.split(r'(\[[a-zA-Z0-9_\-\s]+\])', line)
+    if len(tokens) > 1:
+        parts = []
+        current_speaker_id = default_id
+        current_role = 'narrator'
+        for tok in tokens:
+            tok = tok.strip()
+            if not tok:
+                continue
+            m_tag = re.match(r'^\[([a-zA-Z0-9_\-\s]+)\]$', tok)
+            if m_tag:
+                tag_name = m_tag.group(1).strip()
+                current_speaker_id, current_role = resolve_speaker(tag_name, custom_cast, default_id)
+            else:
+                clean_t = tok.strip(' "\'“”')
+                if clean_t:
+                    parts.append({
+                        "speaker_id": current_speaker_id,
+                        "speaker_role": current_role,
+                        "text": clean_t
+                    })
+        if parts:
+            return parts
+
+    # 2. Prefix role tag: Role: "..." or Role: ...
+    m_prefix = re.match(r'^([a-zA-Z0-9_\-\s]{2,25})\s*:\s*["“]?(.*?)["”]?$', line)
+    if m_prefix:
+        prefix_tag = m_prefix.group(1).strip()
+        body_text = m_prefix.group(2).strip(' "\'“”')
+        if (custom_cast and prefix_tag.lower() in custom_cast) or (prefix_tag.lower() in VOICE_ROLE_MAPPING):
+            sid, role = resolve_speaker(prefix_tag, custom_cast, default_id)
+            return [{
+                "speaker_id": sid,
+                "speaker_role": role,
+                "text": body_text
+            }]
+
+    # 3. Standard fallback: single chunk with default speaker
+    clean_text = line.strip(' "\'“”')
+    return [{
+        "speaker_id": default_id,
+        "speaker_role": 'narrator',
+        "text": clean_text
+    }]
 
 def year_num_to_words(y: int) -> str:
     if 1000 <= y <= 2099:
@@ -59,12 +177,16 @@ def replace_year(match):
     return f'{prefix}{w}'
 
 def normalize_tts_text(text: str) -> str:
-    """Normalizes colloquial, shorthand, year, and time patterns for natural TTS speech.
+    """Normalizes colloquial, shorthand, year, time, and title patterns for natural TTS speech.
+    - Expands 'Dr.', 'Sr.', 'Jr.', 'Mr.', 'Mrs.', etc. to prevent sentence-terminator pauses.
     - Converts '2:00 a.m.' -> '2 a.m.' so Kokoro doesn't say 'two zero zero a.m.'.
     - Converts 'in 1500' / 'by 1950' / 'in 2026' -> 'in fifteen hundred' / 'by nineteen fifty' / 'by twenty twenty six'.
     - Converts '1890s' / '1950s' -> 'eighteen nineties' / 'nineteen fifties'.
     - Converts '14th century' -> 'fourteenth century'.
     """
+    # 0. Titles & Abbreviations (removes hard pause period)
+    text = expand_titles_and_abbreviations(text)
+
     # 1. Clock times: 2:00 a.m. / 2:00 AM -> 2 a.m. / 2 AM
     text = re.sub(r'\b(\d{1,2}):00\s*([ap]\.?m\.?)\b', r'\1 \2', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(\d{1,2}):00\b', r"\1 o'clock", text)
@@ -107,77 +229,124 @@ def master_voice_audio(audio: np.ndarray, sample_rate: int = 24000) -> np.ndarra
         
     return boosted
 
-def clean_script_text(raw_text: str) -> List[str]:
-    """Splits raw text into natural narration lines, stripping comments and stage cues.
-    Supports:
-    1. Instructional Frame_XXX = "..." syntax.
-    2. Full Episode specs with per-frame NARRATION: "..." lines.
-    3. Full Episode specs with a VOICEOVER: block.
-    4. Standard 1 line = 1 frame text.
-    """
-    cleaned_lines = []
+def parse_script_into_frames(
+    raw_text: str,
+    custom_cast: Optional[Dict[str, str]] = None,
+    default_id: int = 6
+) -> List[Dict[str, Any]]:
+    """Parses raw script text into structured frames with speaker assignments and clean text.
+    Guarantees 1:1 frame parity with clean_script_text."""
+    if custom_cast is None:
+        custom_cast = parse_cast_header(raw_text)
+
+    frames = []
     lines = raw_text.strip().splitlines()
 
     # 1. Check for NARRATION: "..." lines in full episode specs
     narration_matches = re.findall(r'NARRATION:\s*["“]([\s\S]*?)["”]', raw_text, re.IGNORECASE)
     if narration_matches:
-        for text in narration_matches:
+        for idx, text in enumerate(narration_matches):
             text = re.sub(r'\s+', ' ', text)
-            text = re.sub(r"\[.*?\]", "", text)
-            text = re.sub(r"\(.*?\)", "", text)
-            text = normalize_tts_text(text).strip()
-            if text:
-                cleaned_lines.append(text)
-        if cleaned_lines:
-            return cleaned_lines
+            chunks = parse_line_speaker_chunks(text, custom_cast, default_id)
+            for c in chunks:
+                c["text"] = normalize_tts_text(c["text"]).strip()
+            chunks = [c for c in chunks if c["text"]]
+            if not chunks:
+                continue
+            clean_line = " ".join(c["text"] for c in chunks)
+            frames.append({
+                "line_idx": idx,
+                "clean_line": clean_line,
+                "primary_speaker_id": chunks[0]["speaker_id"],
+                "primary_speaker_role": chunks[0]["speaker_role"],
+                "chunks": chunks
+            })
+        if frames:
+            return frames
 
     # 2. Check for explicit VOICEOVER: block in spec
     vo_match = re.search(r'VOICEOVER:\s*([\s\S]*?)(?=\n\s*(?:SETUP NOTE:|\+---|[A-Z0-9_]{3,}:)|\Z)', raw_text, re.IGNORECASE)
     if vo_match and len(vo_match.group(1).strip().split()) > 10:
         vo_body = vo_match.group(1).strip()
-        # Split into sentences or lines
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', vo_body) if s.strip()]
-        for s in sentences:
-            s = re.sub(r"\[.*?\]", "", s)
-            s = re.sub(r"\(.*?\)", "", s)
-            s = normalize_tts_text(s).strip()
-            if s:
-                cleaned_lines.append(s)
-        if cleaned_lines:
-            return cleaned_lines
+        vo_body = expand_titles_and_abbreviations(vo_body)
+        # Split on sentence boundaries, protected against single initials & abbreviations
+        sentences = [s.strip() for s in re.split(r'(?<!\b[A-Za-z])(?<=[.!?])\s+', vo_body) if s.strip()]
+        for idx, s in enumerate(sentences):
+            chunks = parse_line_speaker_chunks(s, custom_cast, default_id)
+            for c in chunks:
+                c["text"] = normalize_tts_text(c["text"]).strip()
+            chunks = [c for c in chunks if c["text"]]
+            if not chunks:
+                continue
+            clean_line = " ".join(c["text"] for c in chunks)
+            frames.append({
+                "line_idx": idx,
+                "clean_line": clean_line,
+                "primary_speaker_id": chunks[0]["speaker_id"],
+                "primary_speaker_role": chunks[0]["speaker_role"],
+                "chunks": chunks
+            })
+        if frames:
+            return frames
 
     # 3. Check if script uses the instructional Frame_XXX = "..." format
     has_frame_assignments = any(re.search(r"^\s*[-*•]?\s*Frame[-_]?\d+\s*=", l, re.I) for l in lines)
     if has_frame_assignments:
+        frame_idx = 0
         for line in lines:
             line = line.strip()
-            m = re.search(r'^\s*[-*•]?\s*Frame[-_]?\d+\s*=\s*(["\'])(.*?)\1', line, re.I)
+            m = re.search(r'^\s*[-*•]?\s*Frame[-_]?\d+\s*=\s*(.*)', line, re.I)
             if m:
-                text = m.group(2).strip()
-                text = re.sub(r"\[.*?\]", "", text)
-                text = re.sub(r"\(.*?\)", "", text)
-                text = normalize_tts_text(text).strip()
-                if text:
-                    cleaned_lines.append(text)
-        return cleaned_lines
+                raw_val = m.group(1).strip()
+                m_q = re.match(r'^(["\'])(.*?)\1$', raw_val)
+                raw_content = m_q.group(2) if m_q else raw_val
+                chunks = parse_line_speaker_chunks(raw_content, custom_cast, default_id)
+                for c in chunks:
+                    c["text"] = normalize_tts_text(c["text"]).strip()
+                chunks = [c for c in chunks if c["text"]]
+                if not chunks:
+                    continue
+                clean_line = " ".join(c["text"] for c in chunks)
+                frames.append({
+                    "line_idx": frame_idx,
+                    "clean_line": clean_line,
+                    "primary_speaker_id": chunks[0]["speaker_id"],
+                    "primary_speaker_role": chunks[0]["speaker_role"],
+                    "chunks": chunks
+                })
+                frame_idx += 1
+        return frames
 
-    # Standard format: 1 line = 1 frame
+    # 4. Standard format: 1 line = 1 frame
+    frame_idx = 0
     for line in lines:
         line = line.strip()
-        # Skip comments, rules headers, segment headers, and empty lines
         if not line or line.startswith("#") or line.startswith("//"):
             continue
         if re.match(r"^SEGMENT\s+\d+", line, re.I):
             continue
-        # Remove bracketed cues like [Music], [Scene 1], (whispering), etc.
-        line = re.sub(r"\[.*?\]", "", line)
-        line = re.sub(r"\(.*?\)", "", line)
-        line = normalize_tts_text(line)
-        line = line.strip()
-        if not line:
+        chunks = parse_line_speaker_chunks(line, custom_cast, default_id)
+        for c in chunks:
+            c["text"] = normalize_tts_text(c["text"]).strip()
+        chunks = [c for c in chunks if c["text"]]
+        if not chunks:
             continue
-        cleaned_lines.append(line)
-    return cleaned_lines
+        clean_line = " ".join(c["text"] for c in chunks)
+        frames.append({
+            "line_idx": frame_idx,
+            "clean_line": clean_line,
+            "primary_speaker_id": chunks[0]["speaker_id"],
+            "primary_speaker_role": chunks[0]["speaker_role"],
+            "chunks": chunks
+        })
+        frame_idx += 1
+    return frames
+
+def clean_script_text(raw_text: str) -> List[str]:
+    """Splits raw text into natural narration lines, stripping comments, stage cues,
+    and speaker tags, while expanding title abbreviations (Dr., Sr., Jr., etc.)."""
+    frames = parse_script_into_frames(raw_text)
+    return [f["clean_line"] for f in frames]
 
 class TTSEngine:
     def __init__(self, config: VoiceConfig):
@@ -221,21 +390,26 @@ class TTSEngine:
         script_text: str,
         output_wav_path: Path
     ) -> Dict[str, Any]:
-        """Generates synchronized voiceover audio and returns timing metadata."""
+        """Generates synchronized voiceover audio supporting multi-character dialogue
+        and returns timing and speaker metadata."""
         output_wav_path = Path(output_wav_path)
         output_wav_path.parent.mkdir(parents=True, exist_ok=True)
         meta_json = output_wav_path.with_suffix(".json")
 
-        lines = clean_script_text(script_text)
-        if not lines:
+        parsed_frames = parse_script_into_frames(
+            script_text,
+            custom_cast=self.config.custom_cast,
+            default_id=self.config.speaker_id
+        )
+        if not parsed_frames:
             raise ValueError("Script is empty after cleaning.")
 
         if output_wav_path.exists() and meta_json.exists():
             try:
                 with open(meta_json, "r", encoding="utf-8") as f:
                     cached = json.load(f)
-                if len(cached.get("segments", [])) == len(lines):
-                    logger.info(f"Reusing cached voiceover audio ({cached.get('total_duration', 0):.2f}s) across {len(lines)} segments -> {output_wav_path.name}")
+                if len(cached.get("segments", [])) == len(parsed_frames):
+                    logger.info(f"Reusing cached voiceover audio ({cached.get('total_duration', 0):.2f}s) across {len(parsed_frames)} segments -> {output_wav_path.name}")
                     return cached
             except Exception as e:
                 logger.warning(f"Failed to read cached voiceover metadata: {e}")
@@ -246,30 +420,46 @@ class TTSEngine:
         words_metadata = []
         cur_time = 0.0
         gap_samples = np.zeros(int(sr * 0.28), dtype=np.float32)
+        micro_gap = np.zeros(int(sr * 0.12), dtype=np.float32)
 
-        for line_idx, line in enumerate(lines):
-            try:
-                line_tts = normalize_tts_text(line)
-                audio = self._tts.generate(line_tts, sid=self.config.speaker_id, speed=self.config.speed)
-                samples = np.array(audio.samples, dtype=np.float32)
-            except Exception as e:
-                logger.error(f"Error generating TTS for line {line_idx}: {e}")
+        for line_idx, frame_info in enumerate(parsed_frames):
+            frame_chunks = frame_info["chunks"]
+            frame_spoken_text = frame_info["clean_line"]
+            primary_speaker_id = frame_info["primary_speaker_id"]
+            primary_speaker_role = frame_info["primary_speaker_role"]
+
+            frame_samples_list = []
+            for c_idx, chunk in enumerate(frame_chunks):
+                chunk_tts = chunk["text"]
+                try:
+                    audio = self._tts.generate(chunk_tts, sid=chunk["speaker_id"], speed=self.config.speed)
+                    samples = np.array(audio.samples, dtype=np.float32)
+                    frame_samples_list.append(samples)
+                    if c_idx < len(frame_chunks) - 1:
+                        frame_samples_list.append(micro_gap)
+                except Exception as e:
+                    logger.error(f"Error generating TTS for line {line_idx} chunk {c_idx}: {e}")
+
+            if not frame_samples_list:
                 continue
 
+            frame_samples = np.concatenate(frame_samples_list)
             seg_start = cur_time
-            seg_dur = len(samples) / sr
+            seg_dur = len(frame_samples) / sr
             seg_end = seg_start + seg_dur
 
             segments.append({
                 "line_idx": line_idx,
-                "text": line,
+                "text": frame_spoken_text,
+                "speaker_id": primary_speaker_id,
+                "speaker_role": primary_speaker_role,
                 "start": seg_start,
                 "end": seg_end,
                 "duration": seg_dur
             })
 
             # Estimate word-level timestamps weighted by character length
-            raw_words = line.split()
+            raw_words = frame_spoken_text.split()
             if raw_words:
                 total_chars = sum(len(w) + 1 for w in raw_words)
                 w_start = seg_start
@@ -279,11 +469,13 @@ class TTSEngine:
                         "word": w,
                         "start": w_start,
                         "end": w_start + w_dur,
-                        "line_idx": line_idx
+                        "line_idx": line_idx,
+                        "speaker_id": primary_speaker_id,
+                        "speaker_role": primary_speaker_role
                     })
                     w_start += w_dur
 
-            audio_chunks.append(samples)
+            audio_chunks.append(frame_samples)
             audio_chunks.append(gap_samples)
             cur_time += seg_dur + 0.28
 
@@ -299,7 +491,7 @@ class TTSEngine:
             wf.writeframes((full_audio * 32767).astype(np.int16).tobytes())
 
         total_duration = len(full_audio) / sr
-        logger.info(f"Generated voiceover: {total_duration:.2f}s across {len(segments)} segments -> {output_wav_path.name}")
+        logger.info(f"Generated multi-voice narration: {total_duration:.2f}s across {len(segments)} frames -> {output_wav_path.name}")
 
         result_meta = {
             "wav_path": str(output_wav_path),

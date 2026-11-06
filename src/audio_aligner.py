@@ -164,9 +164,12 @@ def align_narration_audio(
         c_start = cuts[i]
         c_end = cuts[i + 1]
         dur = max(0.2, c_end - c_start)
+        seg_info = tts_segments[i] if tts_segments and i < len(tts_segments) else {}
         frame_timings.append({
             "frame_idx": i,
             "line": a["line"],
+            "speaker_id": seg_info.get("speaker_id", 6),
+            "speaker_role": seg_info.get("speaker_role", "narrator"),
             "speech_start": a["speech_start"],
             "speech_end": a["speech_end"],
             "start_time": c_start,
@@ -189,6 +192,8 @@ def align_narration_audio(
             remapped.append({
                 "frame_idx": f_idx,
                 "line": frame_timings[s_i]["line"],
+                "speaker_id": frame_timings[s_i].get("speaker_id", 6),
+                "speaker_role": frame_timings[s_i].get("speaker_role", "narrator"),
                 "speech_start": frame_timings[s_i]["speech_start"],
                 "speech_end": frame_timings[s_i]["speech_end"],
                 "start_time": cur_t,
@@ -201,13 +206,24 @@ def align_narration_audio(
     total_calc = sum(f["duration"] for f in frame_timings)
     logger.info(f"Acoustic alignment complete: {len(frame_timings)} frames aligned to {total_calc:.2f}s audio.")
     
-    # Format acoustic words for subtitle generator
+    # Format acoustic words with speaker roles for subtitle generator
     sub_words = []
     for w in all_words:
+        w_start = w["start"]
+        w_end = w["end"]
+        matched_role = "narrator"
+        matched_sid = 6
+        for f in frame_timings:
+            if f["speech_start"] - 0.25 <= w_start <= f["speech_end"] + 0.25:
+                matched_role = f.get("speaker_role", "narrator")
+                matched_sid = f.get("speaker_id", 6)
+                break
         sub_words.append({
             "word": w["raw"],
-            "start": w["start"],
-            "end": w["end"]
+            "start": w_start,
+            "end": w_end,
+            "speaker_role": matched_role,
+            "speaker_id": matched_sid
         })
 
     result = {

@@ -3,6 +3,8 @@
 # - Repository Default: am_adam (ID: 5)
 # - Anishorts Default: am_adam (ID: 5)
 # - User Local Default (carlotata): am_michael (ID: 6)
+# - Multi-Voice Casting: supports [Narrator], [Girl], [Boy], [Announcement], [Child], [Elder], or Role: "..."
+# - Honorifics & Titles: Dr., Sr., Jr., Mr., Mrs., Prof. are auto-expanded to eliminate sentence-stop pauses.
 #
 # Slash Commands & Pasted Specs Protocol (/photoshorts, /photolong, /shorts, /long, or direct paste):
 # 1. Identify format as official script definition, determine Title & Category (Shorts vs Long).
